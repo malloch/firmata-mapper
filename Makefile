@@ -20,7 +20,7 @@ CXX = g++
 STRIP = strip
 WXCONFIG = /opt/local/bin/wx-config
 CPPFLAGS =  -O2 -Wall -Wno-strict-aliasing -isysroot $(SDK) `$(WXCONFIG) --cppflags` -D$(OS) -arch ppc -arch i386
-LIBS = -Xlinker -syslibroot -Xlinker $(SDK) `$(WXCONFIG) --libs`
+LIBS = `$(WXCONFIG) --libs`
 else ifeq ($(OS), WINDOWS)
 TARGET = $(PROG).exe
 FINAL_TARGET = $(TARGET)

@@ -128,30 +128,31 @@ int Serial::Open(const wxString& name)
 	tcflush(port_fd, TCIFLUSH);
 #elif defined(MACOSX)
 	int bits;
-	port_fd = open(name.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
+	port_fd = open(name.mb_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
 	if (port_fd < 0) {
-		error_msg = "Unable to open " + name + ", " + strerror(errno);
+		error_msg = _("Unable to open ") + name + _(", ") +
+            wxString(strerror(errno), wxConvUTF8);
 		return -1;
 	}
 	if (ioctl(port_fd, TIOCEXCL) == -1) {
 		close(port_fd);
-		error_msg = "Unable to get exclussive access to port " + name;
+		error_msg = _("Unable to get exclusive access to port ") + name;
 		return -1;
 	}
 	if (ioctl(port_fd, TIOCMGET, &bits) < 0) {
 		close(port_fd);
-		error_msg = "Unable to query serial port signals on " + name;
+		error_msg = _("Unable to query serial port signals on ") + name;
 		return -1;
 	}
 	bits &= ~(TIOCM_DTR | TIOCM_RTS);
 	if (ioctl(port_fd, TIOCMSET, &bits) < 0) {
 		close(port_fd);
-		error_msg = "Unable to control serial port signals on " + name;
+		error_msg = _("Unable to control serial port signals on ") + name;
 		return -1;
 	}
 	if (tcgetattr(port_fd, &settings_orig) < 0) {
 		close(port_fd);
-		error_msg = "Unable to access baud rate on port " + name;
+		error_msg = _("Unable to access baud rate on port ") + name;
 		return -1;
 	}
 	memset(&settings, 0, sizeof(settings));
@@ -166,15 +167,15 @@ int Serial::Open(const wxString& name)
 	char buf[1024], name_createfile[64], name_commconfig[64], *p;
 	DWORD len;
 
-	snprintf(buf, sizeof(buf), "%s", name.c_str());
+	snprintf(buf, sizeof(buf), "%s", name.mb_str());
 	p = strstr(buf, "COM");
 	if (p && sscanf(p + 3, "%d", &port_num) == 1) {
 		printf("port_num = %d\n", port_num);
 		snprintf(name_createfile, sizeof(name_createfile), "\\\\.\\COM%d", port_num);
 		snprintf(name_commconfig, sizeof(name_commconfig), "COM%d", port_num);
 	} else {
-		snprintf(name_createfile, sizeof(name_createfile), "%s", name.c_str());
-		snprintf(name_commconfig, sizeof(name_commconfig), "%s", name.c_str());
+		snprintf(name_createfile, sizeof(name_createfile), "%s", name.mb_str());
+		snprintf(name_commconfig, sizeof(name_commconfig), "%s", name.mb_str());
 	}
 	len = sizeof(COMMCONFIG);
 	if (GetDefaultCommConfig(name_commconfig, &cfg, &len)) {
@@ -724,7 +725,7 @@ static void macos_ports(io_iterator_t  * PortIterator, wxArrayString& list)
 		if (nameCFstring) {
 			if (CFStringGetCString((const __CFString *)nameCFstring,
 			   s, sizeof(s), kCFStringEncodingASCII)) {
-				list.Add(s);
+				list.Add(wxString(s, wxConvUTF8));
 			}
 			CFRelease(nameCFstring);
 		}
