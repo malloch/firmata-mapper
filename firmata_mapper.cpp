@@ -26,6 +26,7 @@
 #include "wx/wxprec.h"
 #include "firmata_mapper.h"
 #include "serial.h"
+#include "mapper/mapper.h"
 
 
 //------------------------------------------------------------------------------
@@ -33,11 +34,14 @@
 //------------------------------------------------------------------------------
 
 Serial port;
+mapper_device dev = 0;
+int needs_update = 0;
 typedef struct {
 	uint8_t mode;
 	uint8_t analog_channel;
 	uint64_t supported_modes;
 	uint32_t value;
+    mapper_signal sig;
 } pin_t;
 pin_t pin_info[128];
 wxString firmata_name;
@@ -123,6 +127,7 @@ void MyFrame::init_data(void)
 		pin_info[i].analog_channel = 127;
 		pin_info[i].supported_modes = 0;
 		pin_info[i].value = 0;
+        pin_info[i].sig = 0;
 	}
 	tx_count = rx_count = 0;
 	firmata_name = _("");
@@ -199,6 +204,8 @@ void MyFrame::add_pin(int pin)
 	modes->Validate();
 	wxCommandEvent cmd = wxCommandEvent(wxEVT_COMMAND_CHOICE_SELECTED, 8000+pin);
 	//modes->Command(cmd);
+    // temporarily change pin mode to force libmapper signal declaration in OnModeChange()
+    pin_info[pin].mode = 255;
 	OnModeChange(cmd);
 }
 
@@ -241,6 +248,46 @@ void MyFrame::OnModeChange(wxCommandEvent &event)
 		tx_count += 3;
 		pin_info[pin].mode = mode;
 		pin_info[pin].value = 0;
+        if (pin_info[pin].sig) {
+            mapper_db_signal props = msig_properties(pin_info[pin].sig);
+            if (props->is_output)
+                mdev_remove_output(dev, pin_info[pin].sig);
+            else
+                mdev_remove_input(dev, pin_info[pin].sig);
+        }
+        char signame[32];
+        int min = 0, max;
+        switch (mode) {
+            case MODE_INPUT:
+                snprintf(signame, 32, "/digital/%i", pin);
+                max = 1;
+                pin_info[pin].sig = mdev_add_output(dev, signame, 1, 'i', 0, &min, &max);
+                break;
+            case MODE_OUTPUT:
+                snprintf(signame, 32, "/digital/%i", pin);
+                max = 1;
+                pin_info[pin].sig = mdev_add_input(dev, signame, 1, 'i', 0, &min, &max,
+                                                   MapperSignalHandler, (void *)pin);
+                break;
+            case MODE_ANALOG:
+                snprintf(signame, 32, "/analog/%i", pin);
+                max = 127;
+                pin_info[pin].sig = mdev_add_output(dev, signame, 1, 'i', 0, &min, &max);
+                break;
+            case MODE_PWM:
+                snprintf(signame, 32, "/pwm/%i", pin);
+                max = 255;
+                pin_info[pin].sig = mdev_add_input(dev, signame, 1, 'i', 0, &min, &max,
+                                                   MapperSignalHandler, (void *)pin);
+                break;
+            case MODE_SERVO:
+                snprintf(signame, 32, "/servo/%i", pin);
+                max = 180;
+                pin_info[pin].sig = mdev_add_input(dev, signame, 1, 'i', 0, &min, &max,
+                                                   MapperSignalHandler, (void *)pin);
+            default:
+                break;
+        }
 	}
 	// create the 3rd column control for this mode
 	if (mode == MODE_OUTPUT) {
@@ -275,6 +322,79 @@ void MyFrame::OnModeChange(wxCommandEvent &event)
 	new_size();
 }
 
+void MyFrame::MapperSignalHandler(mapper_signal msig, mapper_db_signal props,
+                                  mapper_timetag_t *time, void *value)
+{
+    int pin = (int)props->user_data;
+    if (pin < 0 || pin > 127) return;
+    if (!pin_info[pin].sig) return;
+    if (!value) return;
+    int *i = (int *)value;
+    int val = i[0];
+    //int id;
+    uint8_t buf[3];
+    switch (pin_info[pin].mode) {
+        case MODE_OUTPUT:
+        {
+            val = val ? 1 : 0;
+            //id = pin + 7000;
+            //wxToggleButton *button = (wxToggleButton *)FindWindowById(id, scroll);
+            //button->SetValue(val);
+            pin_info[pin].value = val;
+            int port_num = pin / 8;
+            int port_val = 0;
+            for (int i=0; i<8; i++) {
+                int p = port_num * 8 + i;
+                if (pin_info[p].mode == MODE_OUTPUT || pin_info[p].mode == MODE_INPUT) {
+                    if (pin_info[p].value) {
+                        port_val |= (1<<i);
+                    }
+                }
+            }
+            buf[0] = 0x90 | port_num;
+            buf[1] = port_val & 0x7F;
+            buf[2] = (port_val >> 7) & 0x7F;
+            port.Write(buf, 3);
+            tx_count += 3;
+            //UpdateStatus();
+            needs_update = 1;
+            break;
+        }
+        case MODE_PWM:
+            if (val > 255)
+                val = 255;
+            //id = pin + 6000;
+            //wxSlider *slider = (wxSlider *)FindWindowById(id, scroll);
+            //slider->SetValue(val);
+            pin_info[pin].value = val;
+            buf[0] = 0xE0 | pin;
+            buf[1] = val & 0x7F;
+            buf[2] = (val >> 7) & 0x7F;
+            port.Write(buf, 3);
+            tx_count += 3;
+            //UpdateStatus();
+            needs_update = 1;
+            break;
+        case MODE_SERVO:
+            if (val > 180)
+                val = 180;
+            //id = pin + 6000;
+            //wxSlider *slider = (wxSlider *)FindWindowById(id, scroll);
+            //slider->SetValue(val);
+            pin_info[pin].value = val;
+            buf[0] = 0xE0 | pin;
+            buf[1] = val & 0x7F;
+            buf[2] = (val >> 7) & 0x7F;
+            port.Write(buf, 3);
+            tx_count += 3;
+            //UpdateStatus();
+            needs_update = 1;
+            break;
+        default:
+            break;
+    }
+}
+
 void MyFrame::OnToggleButton(wxCommandEvent &event)
 {
 	int id = event.GetId();
@@ -301,6 +421,8 @@ void MyFrame::OnToggleButton(wxCommandEvent &event)
 	buf[2] = (port_val >> 7) & 0x7F;
 	port.Write(buf, 3);
 	tx_count += 3;
+    if (pin_info[pin].sig)
+        msig_update_int(pin_info[pin].sig, val);
 	UpdateStatus();
 }
 
@@ -334,6 +456,8 @@ void MyFrame::OnSliderDrag(wxScrollEvent &event)
 		port.Write(buf, len);
 		tx_count += len;
 	}
+    if (pin_info[pin].sig)
+        msig_update_int(pin_info[pin].sig, val);
 	UpdateStatus();
 }
 
@@ -344,6 +468,9 @@ void MyFrame::OnPort(wxCommandEvent &event)
 	int id = event.GetId();
 	wxString name = port_menu->FindItem(id)->GetLabel();
 
+    if (dev)
+        mdev_free(dev);
+    dev = 0;
 	port.Close();
 	init_data();
 	printf("OnPort, id = %d, name = %s\n", id, (const char *)name);
@@ -389,6 +516,7 @@ void MyFrame::OnPort(wxCommandEvent &event)
 		port.Write(buf, 3);
 		tx_count += 3;
 		wxWakeUpIdle();
+        dev = mdev_new("Firmata", 9000, 0);
 	} else {
 		printf("error opening port\n");
 	}
@@ -399,8 +527,11 @@ void MyFrame::OnIdle(wxIdleEvent &event)
 {
 	uint8_t buf[1024];
 	int r;
-
+    if (dev)
+        mdev_poll(dev, 0);
 	//printf("Idle event\n");
+    if (needs_update)
+        UpdateStatus();
 	r = port.Input_wait(40);
 	if (r > 0) {
 		r = port.Read(buf, sizeof(buf));
@@ -469,6 +600,8 @@ void MyFrame::DoMessage(void)
 		for (int pin=0; pin<128; pin++) {
 			if (pin_info[pin].analog_channel == analog_ch) {
 				pin_info[pin].value = analog_val;
+                if (pin_info[pin].sig)
+                    msig_update_int(pin_info[pin].sig, analog_val);
 				//printf("pin %d is A%d = %d\n", pin, analog_ch, analog_val);
 				wxStaticText *text = (wxStaticText *)
 				  FindWindowById(5000 + pin, scroll);
@@ -490,6 +623,8 @@ void MyFrame::DoMessage(void)
 		for (int mask=1; mask & 0xFF; mask <<= 1, pin++) {
 			if (pin_info[pin].mode == MODE_INPUT) {
 				uint32_t val = (port_val & mask) ? 1 : 0;
+                if (pin_info[pin].sig)
+                    msig_update_int(pin_info[pin].sig, (int)val);
 				if (pin_info[pin].value != val) {
 					printf("pin %d is %d\n", pin, val);
 					wxStaticText *text = (wxStaticText *)
@@ -601,11 +736,15 @@ void MyFrame::OnAbout( wxCommandEvent &event )
 
 void MyFrame::OnQuit( wxCommandEvent &event )
 {
-     Close( true );
+    if (dev)
+        mdev_free(dev);
+    Close( true );
 }
 
 void MyFrame::OnCloseWindow( wxCloseEvent &event )
 {
+    if (dev)
+        mdev_free(dev);
     // if ! saved changes -> return
     Destroy();
 }

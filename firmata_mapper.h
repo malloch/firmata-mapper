@@ -8,6 +8,7 @@
 #include <wx/wx.h>
 #include <wx/tglbtn.h>
 #include <stdint.h>
+#include "mapper/mapper.h"
 
 
 //#define LOG_MSG_TO_STDOUT
@@ -60,6 +61,8 @@ private:
 	void OnToggleButton(wxCommandEvent &event);
 	void OnSliderDrag(wxScrollEvent &event);
 	void OnModeChange(wxCommandEvent &event);
+    static void MapperSignalHandler(mapper_signal msig, mapper_db_signal props,
+                                    mapper_timetag_t *time, void *value);
 	DECLARE_EVENT_TABLE()
 };
 
