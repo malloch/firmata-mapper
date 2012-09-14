@@ -1,4 +1,7 @@
-/*  Firmata GUI-friendly queries test
+/*  Firmata GUI-friendly libmapper interface
+ *  Copyright 2012, Joseph Malloch (joseph.malloch@gmail.com)
+ *
+ *  Adapted from firmata_test
  *  Copyright 2010, Paul Stoffregen (paul@pjrc.com)
  *
  *  This program is free software: you can redistribute it and/or modify
@@ -17,11 +20,11 @@
 
 
 #if defined(__GNUG__) && !defined(NO_GCC_PRAGMA)
-#pragma implementation "firmata_test.h"
+#pragma implementation "firmata_mapper.h"
 #endif
 
 #include "wx/wxprec.h"
-#include "firmata_test.h"
+#include "firmata_mapper.h"
 #include "serial.h"
 
 
@@ -591,8 +594,8 @@ void MyFrame::DoMessage(void)
 
 void MyFrame::OnAbout( wxCommandEvent &event )
 {
-    wxMessageDialog dialog( this, _("Firmata Test 1.0\nCopyright Paul Stoffregen"),
-        wxT("About Firmata Test"), wxOK|wxICON_INFORMATION );
+    wxMessageDialog dialog( this, _("Firmata Mapper 1.0\nCopyright Joseph Malloch, based on Firmata Test by Paul Stoffregen"),
+        wxT("About Firmata Mapper"), wxOK|wxICON_INFORMATION );
     dialog.ShowModal();
 }
 
@@ -666,7 +669,7 @@ MyApp::MyApp()
 
 bool MyApp::OnInit()
 {
-    MyFrame *frame = new MyFrame( NULL, -1, _("Firmata Test"), wxPoint(20,20), wxSize(400,640) );
+    MyFrame *frame = new MyFrame( NULL, -1, _("Firmata Mapper"), wxPoint(20,20), wxSize(400,640) );
     frame->Show( true );
     
     return true;

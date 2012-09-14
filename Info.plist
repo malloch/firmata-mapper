@@ -1,15 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-<!-- Documentation for this format is at -->
-<!-- http://developer.apple.com/documentation/MacOSX/Conceptual/BPRuntimeConfig/Articles/ConfigFiles.html -->
 	<key>CFBundleDisplayName</key>
-	<string>Firmata Test</string>
+	<string>Firmata Mapper</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.pjrc.firmata_test</string>
+	<string>com.idmil.firmata_mapper</string>
 	<key>CFBundleName</key>
-	<string>Firmata Test</string>
+	<string>Firmata Mapper</string>
 	<key>CFBundleShortVersionString</key>
 	<string>1.00</string>
 	<key>LSHasLocalizedDisplayName</key>
@@ -19,9 +17,7 @@
 	<key>NSAppleScriptEnabled</key>
 	<false/>
 	<key>CFBundleExecutable</key>
-	<string>firmata_test</string>
-	<!--<key>CFBundleIconFile</key>
-	<string>firmata_test.icns</string>-->
+	<string>firmata_mapper</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleSignature</key>
