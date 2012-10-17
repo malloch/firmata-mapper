@@ -104,7 +104,7 @@ MyFrame::MyFrame( wxWindow *parent, wxWindowID id, const wxString &title,
 
 	scroll = new wxScrolledWindow(this);
 	scroll->SetScrollRate(20, 20);
-	grid = new wxFlexGridSizer(0, 3, 4, 4);
+	grid = new wxFlexGridSizer(0, 4, 4, 20);
 	scroll->SetSizer(grid);
 
 	init_data();
@@ -154,12 +154,12 @@ void MyFrame::add_item_to_grid(int row, int col, wxWindow *item)
 		while (num_row < row + 1) {
 			printf("  add %d static text\n", num_col);
 			for (int i=0; i<num_col; i++) {
-				grid->Add(new wxStaticText(scroll, -1, _("")));
+				grid->Add(new wxStaticText(scroll, -1, _("        ")));
 			}
 			num_row++;
 		}
 	}
-	int index = row * num_col + col;
+	int index = row * num_col + col + 1;
 	//printf("index = %d: ", index);
 	wxSizerItem *existing = grid->GetItem(index);
 	if (existing != NULL) {
