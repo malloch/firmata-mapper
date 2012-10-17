@@ -11,15 +11,16 @@ CXX = g++
 STRIP = strip
 WXCONFIG = wx-config
 CPPFLAGS = -O2 -Wall -Wno-strict-aliasing `$(WXCONFIG) --cppflags` -D$(OS)
+CPPFLAGS += $(shell pkg-config --cflags libmapper-0)
 LIBS = `$(WXCONFIG) --libs`
 else ifeq ($(OS), MACOSX)
 TARGET = $(PROG)
 FINAL_TARGET = $(PROG).dmg
-SDK = /Developer/SDKs/MacOSX10.5.sdk
+SDK = /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.8.sdk
 CXX = g++
 STRIP = strip
 WXCONFIG = /opt/local/bin/wx-config
-CPPFLAGS =  -O2 -Wall -Wno-strict-aliasing -isysroot $(SDK) `$(WXCONFIG) --cppflags` -D$(OS) -arch ppc -arch i386
+CPPFLAGS =  -O2 -Wall -Wno-strict-aliasing -isysroot $(SDK) `$(WXCONFIG) --cppflags` -D$(OS) -arch i386
 CPPFLAGS += $(shell pkg-config --cflags libmapper-0)
 LIBS = `$(WXCONFIG) --libs` $(shell pkg-config --libs libmapper-0)
 else ifeq ($(OS), WINDOWS)
