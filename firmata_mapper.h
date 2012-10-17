@@ -62,7 +62,8 @@ private:
 	void OnSliderDrag(wxScrollEvent &event);
 	void OnModeChange(wxCommandEvent &event);
     static void MapperSignalHandler(mapper_signal msig, mapper_db_signal props,
-                                    mapper_timetag_t *time, void *value);
+                                    int instance_id, void *value, int count,
+                                    mapper_timetag_t *time);
 	DECLARE_EVENT_TABLE()
 };
 

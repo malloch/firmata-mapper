@@ -1,5 +1,5 @@
 /*  Firmata GUI-friendly libmapper interface
- *  Copyright 2012, Joseph Malloch (joseph.malloch@gmail.com)
+ *  Joseph Malloch (joseph.malloch@gmail.com)
  *
  *  Adapted from firmata_test
  *  Copyright 2010, Paul Stoffregen (paul@pjrc.com)
@@ -35,6 +35,7 @@
 
 Serial port;
 mapper_device dev = 0;
+mapper_timetag_t tt;
 int needs_update = 0;
 typedef struct {
 	uint8_t mode;
@@ -323,7 +324,8 @@ void MyFrame::OnModeChange(wxCommandEvent &event)
 }
 
 void MyFrame::MapperSignalHandler(mapper_signal msig, mapper_db_signal props,
-                                  mapper_timetag_t *time, void *value)
+                                  int instance_id, void *value, int count,
+                                  mapper_timetag_t *time)
 {
     int pin = (int)props->user_data;
     if (pin < 0 || pin > 127) return;
@@ -561,6 +563,9 @@ void MyFrame::Parse(const uint8_t *buf, int len)
 
 	p = buf;
 	end = p + len;
+
+    mdev_timetag_now(dev, &tt);
+    mdev_start_queue(dev, tt);
 	for (p = buf; p < end; p++) {
 		uint8_t msn = *p & 0xF0;
 		if (msn == 0xE0 || msn == 0x90 || *p == 0xF9) {
@@ -586,6 +591,7 @@ void MyFrame::Parse(const uint8_t *buf, int len)
 			parse_count = parse_command_len = 0;
 		}
 	}
+    mdev_send_queue(dev, tt);
 }
 
 void MyFrame::DoMessage(void)
@@ -601,7 +607,7 @@ void MyFrame::DoMessage(void)
 			if (pin_info[pin].analog_channel == analog_ch) {
 				pin_info[pin].value = analog_val;
                 if (pin_info[pin].sig)
-                    msig_update_int(pin_info[pin].sig, analog_val);
+                    msig_update(pin_info[pin].sig, &analog_val, 1, tt);
 				//printf("pin %d is A%d = %d\n", pin, analog_ch, analog_val);
 				wxStaticText *text = (wxStaticText *)
 				  FindWindowById(5000 + pin, scroll);
@@ -622,10 +628,10 @@ void MyFrame::DoMessage(void)
 		//printf("port_num = %d, port_val = %d\n", port_num, port_val);
 		for (int mask=1; mask & 0xFF; mask <<= 1, pin++) {
 			if (pin_info[pin].mode == MODE_INPUT) {
-				uint32_t val = (port_val & mask) ? 1 : 0;
+				int val = (port_val & mask) ? 1 : 0;
                 if (pin_info[pin].sig)
-                    msig_update_int(pin_info[pin].sig, (int)val);
-				if (pin_info[pin].value != val) {
+                    msig_update(pin_info[pin].sig, &val, 1, tt);
+				if (pin_info[pin].value != (uint32_t)val) {
 					printf("pin %d is %d\n", pin, val);
 					wxStaticText *text = (wxStaticText *)
 					  FindWindowById(5000 + pin, scroll);
@@ -738,6 +744,7 @@ void MyFrame::OnQuit( wxCommandEvent &event )
 {
     if (dev)
         mdev_free(dev);
+    dev = 0;
     Close( true );
 }
 
@@ -745,6 +752,7 @@ void MyFrame::OnCloseWindow( wxCloseEvent &event )
 {
     if (dev)
         mdev_free(dev);
+    dev = 0;
     // if ! saved changes -> return
     Destroy();
 }
@@ -816,6 +824,9 @@ bool MyApp::OnInit()
 
 int MyApp::OnExit()
 {
+    if (dev)
+        mdev_free(dev);
+    dev = 0;
     return 0;
 }
 
