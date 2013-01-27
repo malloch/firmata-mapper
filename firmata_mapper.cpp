@@ -272,7 +272,7 @@ void MyFrame::OnModeChange(wxCommandEvent &event)
                 break;
             case MODE_ANALOG:
                 snprintf(signame, 32, "/analog/%i", pin);
-                max = 127;
+                max = 1023;
                 pin_info[pin].sig = mdev_add_output(dev, signame, 1, 'i', 0, &min, &max);
                 break;
             case MODE_PWM:
