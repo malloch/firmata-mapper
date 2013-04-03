@@ -1,5 +1,5 @@
-#OS = LINUX
-OS = MACOSX
+OS = LINUX
+#OS = MACOSX
 #OS = WINDOWS
 
 PROG = firmata_mapper
@@ -12,7 +12,7 @@ STRIP = strip
 WXCONFIG = wx-config
 CPPFLAGS = -O2 -Wall -Wno-strict-aliasing `$(WXCONFIG) --cppflags` -D$(OS)
 CPPFLAGS += $(shell pkg-config --cflags libmapper-0)
-LIBS = `$(WXCONFIG) --libs`
+LIBS = `$(WXCONFIG) --libs` $(shell pkg-config --libs libmapper-0)
 else ifeq ($(OS), MACOSX)
 TARGET = $(PROG)
 FINAL_TARGET = $(PROG).dmg

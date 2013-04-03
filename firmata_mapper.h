@@ -49,6 +49,7 @@ private:
 	void new_size(void);
 	void add_item_to_grid(int row, int col, wxWindow *item);
 	void add_pin(int pin);
+	wxString std2wx(std::string s);
 	void UpdateStatus(void);
 	void Parse(const uint8_t *buf, int len);
 	void DoMessage(void);
@@ -59,8 +60,11 @@ private:
 	void OnSize(wxSizeEvent &event);
 	void OnPort(wxCommandEvent &event);
 	void OnToggleButton(wxCommandEvent &event);
+	void OnTextChanged(wxCommandEvent &event);
+	std::string wx2std(wxString s);
 	void OnSliderDrag(wxScrollEvent &event);
 	void OnModeChange(wxCommandEvent &event);
+	void createSignal(int pin, int mode);
     static void MapperSignalHandler(mapper_signal msig, mapper_db_signal props,
                                     int instance_id, void *value, int count,
                                     mapper_timetag_t *time);
