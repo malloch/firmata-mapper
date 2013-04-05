@@ -61,7 +61,7 @@ unsigned long previousMillis;       // for comparison with currentMillis
 int samplingInterval = 19;          // how often to run the main loop (in ms)
 
 /*to stock the name of the signals*/
-String names[TOTAL_PINS];
+byte names[TOTAL_PINS][28];
 
 Servo servos[MAX_SERVOS];
 /*==============================================================================
@@ -109,8 +109,30 @@ void checkDigitalInputs(void)
 /* sets the pin mode to the correct state and sets the relevant bits in the
  * two bit-arrays that track Digital I/O and PWM status
  */
-void setPinModeCallback(byte pin, int mode)
+void setPinPropCallback(byte pin, int mode, byte currentName[28])
 {
+  for (int i=0; i<28; i++){
+     //EEPROM.write((pin-2)*28+i, currentName[i]);
+     names[pin][i] = currentName[i];
+     //Serial.print(names[pin][i]);
+   }
+   
+  for (int i=0; i< TOTAL_PINS;i++){
+    Serial.print(i);
+    Serial.print(" : ");
+    for (int j=0; j<28; j++){
+      Serial.print(names[i][j]);
+    }
+    Serial.print("\n");
+  }
+  /*for( int i=0;i<28;i++){
+    //currentName[i] = EEPROM.read((pin-2)*28+i);
+    Serial.print(currentName[i]);
+  }
+  Serial.print("\n");
+   Serial.print (names[pin]);*/
+  
+  
   if (IS_PIN_SERVO(pin) && mode != SERVO && servos[PIN_TO_SERVO(pin)].attached()) {
     servos[PIN_TO_SERVO(pin)].detach();
   }
@@ -169,9 +191,10 @@ void setPinModeCallback(byte pin, int mode)
   }
   // TODO: save status to EEPROM here, if changed
 }
+/*
+void setPinModeCallback(byte pin, byte currentName[28]){
+  Serial.print("setpinmodecallback NAME\n");
 
-void setPinNameCallback(byte pin, byte currentName[28])
-{
   names[pin] = "";
   char bufname[1];
   for (int i=0; i< 28; i=i+2){
@@ -179,13 +202,14 @@ void setPinNameCallback(byte pin, byte currentName[28])
     
     names[pin] = names[pin]+ (char)bufname[1];//bufname;
   }
-  /*Serial.write("callback : ");
+    /*Serial.write("callback : ");
   for( int i=0;i<28;i++){
     Serial.print(currentName[i]);
   } 
  //Serial.print(names[pin]); 
   Serial.print("\n");*/
-}
+//}
+
 
 /*string HEX2STR (string str)
 {
@@ -271,6 +295,10 @@ void reportDigitalCallback(byte port, int value)
   // as analog when sampling the analog inputs.  Likewise, while
   // scanning digital pins, portConfigInputs will mask off values from any
   // pins configured as analog
+}
+
+void EEPROMWritingCallback(byte pin, int value){
+    
 }
 
 /*==============================================================================
@@ -389,10 +417,10 @@ void systemResetCallback()
   for (byte i=0; i < TOTAL_PINS; i++) {
     if (IS_PIN_ANALOG(i)) {
       // turns off pullup, configures everything
-      setPinModeCallback(i, ANALOG); // /!\ do not be commented, just for a test
+      //setPinModeCallback(i, ANALOG); // /!\ do not be commented, just for a test
     } else {
       // sets the output to 0, configures portConfigInputs
-      setPinModeCallback(i, OUTPUT); // /!\ do not be commented, just for a test
+      //setPinModeCallback(i, OUTPUT); // /!\ do not be commented, just for a test
     }
   }
   // by default, do not report any analog inputs
@@ -419,10 +447,11 @@ void setup()
   Firmata.attach(DIGITAL_MESSAGE, digitalWriteCallback);
   Firmata.attach(REPORT_ANALOG, reportAnalogCallback);
   Firmata.attach(REPORT_DIGITAL, reportDigitalCallback);
-  Firmata.attach(SET_PIN_PROP, setPinModeCallback);
+  Firmata.attach(SET_PIN_PROP, setPinPropCallback);
   //Firmata.attach(SET_PIN_NAME, setPinNameCallback);
   Firmata.attach(START_SYSEX, sysexCallback);
   Firmata.attach(SYSTEM_RESET, systemResetCallback);
+  //Firmata.attach(EEPROM_WRITING, EEPROMWritingCallback);  
   
   Firmata.begin(57600);
   systemResetCallback();  // reset to default config

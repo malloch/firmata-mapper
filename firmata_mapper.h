@@ -60,11 +60,14 @@ private:
 	void OnSize(wxSizeEvent &event);
 	void OnPort(wxCommandEvent &event);
 	void OnToggleButton(wxCommandEvent &event);
+	void OnButton(wxCommandEvent &event);
 	void OnTextChanged(wxCommandEvent &event);
 	std::string wx2std(wxString s);
 	void OnSliderDrag(wxScrollEvent &event);
 	void OnModeChange(wxCommandEvent &event);
 	void createSignal(int pin, int mode);
+	void OnKey(wxKeyEvent& event);
+
     static void MapperSignalHandler(mapper_signal msig, mapper_db_signal props,
                                     int instance_id, void *value, int count,
                                     mapper_timetag_t *time);

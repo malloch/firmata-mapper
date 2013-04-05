@@ -87,7 +87,9 @@ BEGIN_EVENT_TABLE(MyFrame,wxFrame)
 	EVT_CHOICE(-1, MyFrame::OnModeChange)
         EVT_IDLE(MyFrame::OnIdle)
         EVT_TOGGLEBUTTON(-1, MyFrame::OnToggleButton)
-        EVT_TEXT(-1, MyFrame::OnTextChanged)
+        EVT_BUTTON(-1, MyFrame::OnButton)
+        EVT_TEXT_ENTER(-1, MyFrame::OnTextChanged)
+        EVT_CHAR(MyFrame::OnKey)//TAB (doesn't work)
 	EVT_SCROLL_THUMBTRACK(MyFrame::OnSliderDrag)
 	EVT_MENU_OPEN(MyMenu::OnShowPortList)
 	EVT_MENU_HIGHLIGHT(-1, MyMenu::OnHighlight)
@@ -118,6 +120,8 @@ MyFrame::MyFrame( wxWindow *parent, wxWindowID id, const wxString &title,
 	scroll->SetScrollRate(20, 20);
 	grid = new wxFlexGridSizer(0, 4, 4, 20);
 	scroll->SetSizer(grid); 
+	
+	wxButton *EEPROMButton = new wxButton(scroll, 12546, _("write on EEPROM"), wxPoint(0, 0), wxDefaultSize, 0, wxDefaultValidator, _("EEPROM Button"));
 
 	init_data();
 #if 0
@@ -195,13 +199,15 @@ void MyFrame::add_item_to_grid(int row, int col, wxWindow *item)
 void MyFrame::add_pin(int pin)
 {
 	wxString *str = new wxString();
-	if (names[pin]=="")
+	if (names[pin]==""){
 	  str->Printf(_("Pin %d"), pin);
-	else{
+	}else{
 	  *str = wxString::FromAscii(names[pin].c_str());
 	}
-
-	wxTextCtrl *wxName = new wxTextCtrl(scroll, 15000+pin, *str); 
+	  
+	wxTextCtrl *wxName = new wxTextCtrl(scroll, 15000+pin, *str , wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER|wxTE_PROCESS_TAB, wxDefaultValidator, wxTextCtrlNameStr); 
+	//wxName->Connect(15000+pin, wxEVT_CHAR, (wxObjectEventFunction)&MyFrame::OnKey,NULL,this);
+	
 	wxName->SetMaxLength(28);
 
 	add_item_to_grid(pin, 0, wxName);
@@ -306,7 +312,7 @@ void MyFrame::OnModeChange(wxCommandEvent &event)
 	signame[i]=(pin_info[pin].name)[i];
       }
     }
-    char unitsig[32];
+    char *unitsig = 0;
     int min = 0, max;
     switch (mode) {//to create the new signal with the right mode
     case MODE_INPUT:
@@ -500,18 +506,22 @@ void MyFrame::OnToggleButton(wxCommandEvent &event)
 	UpdateStatus();
 }
 
+void MyFrame::OnButton(wxCommandEvent &event)
+{  
+  uint/_t buf[3];
+  buf[0]=0x00;
+}
+
 void MyFrame::OnTextChanged(wxCommandEvent &event)
 {
-
   int id = event.GetId();
   int pin = id -15000;
   if (pin < 0 || pin > 127) return;
-  //on check sur quelle pin c'est
-  // on récupère le texte pour le mettre dans la variable info_pin[pin].name
 
   wxTextCtrl *txt = (wxTextCtrl*)FindWindowById(id, scroll);
   wxString wxName;
   wxName = txt->GetValue();
+  //  cout << wxName.length() << endl;
   std::string name = wx2std(wxName);
   
   pin_info[pin].name = name;
@@ -519,6 +529,9 @@ void MyFrame::OnTextChanged(wxCommandEvent &event)
   //cout << pin_info[pin].name  << endl;
 
   uint8_t buf[36];
+  for (int i = 0; i<36;i++){
+    buf[i] = 0;
+  }
     buf[0] = 0xF4;
     buf[1] = pin;
     buf[2] = pin_info[pin].mode;
@@ -540,15 +553,12 @@ void MyFrame::OnTextChanged(wxCommandEvent &event)
       pin_info[pin].init = false;
     } else {
       pin_info[pin].init = true;
-      for (int i=0; i<28; i++){
-	signame[i]=(pin_info[pin].name)[i];
+      for (int i=0; i<(int)name.length(); i++){
+	  signame[i]=(pin_info[pin].name)[i];
       }
     }
 
-    //pin_info[pin].init = false;
-
-
-    char unitsig[32];
+    char *unitsig = 0;
     int min = 0, max;
     switch (pin_info[pin].mode) {//to create the new signal with the right mode
     case MODE_INPUT:
@@ -567,10 +577,8 @@ void MyFrame::OnTextChanged(wxCommandEvent &event)
       max = 1;
       pin_info[pin].sig = mdev_add_input(dev, signame, 1, 'i', unitsig, &min, &max,
 					 MapperSignalHandler, (void *)pin);
-      //cout << pin_info[pin].sig << endl; 
       break;
     case MODE_ANALOG:
-      //cout << "ok analog" << endl;
       if (!pin_info[pin].init){
 	snprintf(signame, 32, "/analog/%i", pin);
       }
@@ -596,17 +604,19 @@ void MyFrame::OnTextChanged(wxCommandEvent &event)
       break;
     }
 
-    //cout << "onTextChanged :" << signame << " " << pin_info[pin].name << endl;
-
     for (int i = 0; i < 28 ; i++)
-      {	    
-	std::ostringstream oss;
-	oss << std::hex << (int)signame[i];
-	buf[i+3] = atoi((oss.str()).c_str());//string to integer
-      }
+      {	
+	//std::ostringstream oss;
+	//oss << std::hex << (int)signame[i]; //à garder pour faire un convertisseur int/ascii
+	//buf[i+3] = atoi((oss.str()).c_str());//string to integer
+
+
+	buf[i+3] = (uint8_t)signame[i];	
+	//cout << (int)buf[i+3];
+	}
     port.Write(buf, 32);
     tx_count += 32;    
-  
+    //cout << endl;
    
 
     new_size();
@@ -658,6 +668,16 @@ void MyFrame::OnSliderDrag(wxScrollEvent &event)
     if (pin_info[pin].sig)
         msig_update_int(pin_info[pin].sig, val);
 	UpdateStatus();
+}
+
+void MyFrame::OnKey(wxKeyEvent& event) //not used for the moment
+{
+  cout << "onkey" << endl;
+  if(event.GetKeyCode() ==  9)   
+    {
+      wxTextCtrl *textctrl = wxDynamicCast( event.GetEventObject(), wxTextCtrl );
+      if( textctrl != NULL) textctrl->Navigate();
+    }
 }
 
 
@@ -924,7 +944,6 @@ void MyFrame::DoMessage(void)
 			if (parse_count > 6) pin_info[pin].value |= (parse_buf[5] << 7);
 			if (parse_count > 7) pin_info[pin].value |= (parse_buf[6] << 14);
 			add_pin(pin);
-			//cout << "dans do message" << endl;
 		}
 		return;
 	}
@@ -1016,7 +1035,7 @@ MyApp::MyApp()
 
 bool MyApp::OnInit()
 {
-    MyFrame *frame = new MyFrame( NULL, -1, _("Firmata Mapper"), wxPoint(20,20), wxSize(400,640) );
+    MyFrame *frame = new MyFrame( NULL, -1, _("Firmata Mapper"), wxPoint(20,20), wxSize(400,700) );
     frame->Show( true );
 
     for (int i=0;i<128;i++)
