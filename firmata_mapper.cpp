@@ -120,10 +120,10 @@ MyFrame::MyFrame( wxWindow *parent, wxWindowID id, const wxString &title,
 	scroll->SetScrollRate(20, 20);
 	grid = new wxFlexGridSizer(0, 4, 4, 20);
 	scroll->SetSizer(grid); 
-	
-	wxButton *EEPROMButton = new wxButton(scroll, 12546, _("write on EEPROM"), wxPoint(0, 0), wxDefaultSize, 0, wxDefaultValidator, _("EEPROM Button"));
 
 	init_data();
+
+	
 #if 0
 	// For testing only, add many controls so something
 	// appears in the window without requiring any
@@ -205,12 +205,12 @@ void MyFrame::add_pin(int pin)
 	  *str = wxString::FromAscii(names[pin].c_str());
 	}
 	  
-	wxTextCtrl *wxName = new wxTextCtrl(scroll, 15000+pin, *str , wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER|wxTE_PROCESS_TAB, wxDefaultValidator, wxTextCtrlNameStr); 
+	wxTextCtrl *wxName = new wxTextCtrl(scroll, 15000+pin, *str , wxDefaultPosition, wxSize(150,30), wxTE_PROCESS_ENTER|wxTE_PROCESS_TAB, wxDefaultValidator, wxTextCtrlNameStr); 
 	//wxName->Connect(15000+pin, wxEVT_CHAR, (wxObjectEventFunction)&MyFrame::OnKey,NULL,this);
 	
 	wxName->SetMaxLength(28);
 
-	add_item_to_grid(pin, 0, wxName);
+	add_item_to_grid(pin+1, 0, wxName);
 
 	wxArrayString list;
 	if (pin_info[pin].supported_modes & (1<<MODE_INPUT)) list.Add(_("Input"));
@@ -230,7 +230,7 @@ void MyFrame::add_pin(int pin)
 		(const char *)modes->GetStringSelection());
 	
 	pin_info[pin].name = names[pin];
-	add_item_to_grid(pin, 1, modes);
+	add_item_to_grid(pin+1, 1, modes);
 	modes->Validate();
 	wxCommandEvent cmd = wxCommandEvent(wxEVT_COMMAND_CHOICE_SELECTED, 8000+pin);
 	//modes->Command(cmd);
@@ -373,14 +373,14 @@ void MyFrame::OnModeChange(wxCommandEvent &event)
     wxToggleButton *button = new  wxToggleButton(scroll, 7000+pin, 
 						 pin_info[pin].value ? _("High") : _("Low"));
     button->SetValue(pin_info[pin].value);
-    add_item_to_grid(pin, 2, button);
+    add_item_to_grid(pin+1, 2, button);
   } else if (mode == MODE_INPUT) {
     wxStaticText *text = new wxStaticText(scroll, 5000+pin,
 					  pin_info[pin].value ? _("High") : _("Low"));
     wxSize size = wxSize(128, -1);
     text->SetMinSize(size);
     text->SetWindowStyle(wxALIGN_CENTRE);
-    add_item_to_grid(pin, 2, text);
+    add_item_to_grid(pin+1, 2, text);
     
   } else if (mode == MODE_ANALOG) {
     wxString val;
@@ -389,14 +389,14 @@ void MyFrame::OnModeChange(wxCommandEvent &event)
     wxSize size = wxSize(128, -1);
     text->SetMinSize(size);
     text->SetWindowStyle(wxALIGN_CENTRE);
-    add_item_to_grid(pin, 2, text);
+    add_item_to_grid(pin+1, 2, text);
   } else if (mode == MODE_PWM || mode == MODE_SERVO) {
     int maxval = (mode == MODE_PWM) ? 255 : 180;
     wxSlider *slider = new wxSlider(scroll, 6000+pin,
 				    pin_info[pin].value, 0, maxval);
     wxSize size = wxSize(128, -1);
     slider->SetMinSize(size);
-    add_item_to_grid(pin, 2, slider);
+    add_item_to_grid(pin+1, 2, slider);
   }
   new_size();
 }
@@ -508,8 +508,16 @@ void MyFrame::OnToggleButton(wxCommandEvent &event)
 
 void MyFrame::OnButton(wxCommandEvent &event)
 {  
-  uint/_t buf[3];
-  buf[0]=0x00;
+  uint8_t buf[3];
+  buf[0]=0x07;
+
+  if (event.GetId() == 12546){
+    buf[1]=0;
+  }else if (event.GetId() == 12547){
+    buf[1]=1;
+  }
+  port.Write(buf, 2);
+  tx_count += 2;
 }
 
 void MyFrame::OnTextChanged(wxCommandEvent &event)
@@ -816,6 +824,16 @@ void MyFrame::Parse(const uint8_t *buf, int len)
 void MyFrame::DoMessage(void)
 {
 	uint8_t cmd = (parse_buf[0] & 0xF0);
+
+	
+	wxButton *EEPROMButton = new wxButton(scroll, 12546, _("write on EEPROM"), wxPoint(0, 0), wxDefaultSize, 0, wxDefaultValidator, _("EEPROM Button"));
+
+	add_item_to_grid(1, 0, EEPROMButton);
+
+	
+	wxButton *EEPROMClearButton = new wxButton(scroll, 12547, _("Clear EEPROM"), wxPoint(0, 0), wxDefaultSize, 0, wxDefaultValidator, _("EEPROM Clear Button"));
+
+	add_item_to_grid(1, 1, EEPROMClearButton);
 
 	//printf("message, %d bytes, %02X\n", parse_count, parse_buf[0]);
 

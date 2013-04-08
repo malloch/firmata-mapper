@@ -112,26 +112,14 @@ void checkDigitalInputs(void)
 void setPinPropCallback(byte pin, int mode, byte currentName[28])
 {
   for (int i=0; i<28; i++){
-     //EEPROM.write((pin-2)*28+i, currentName[i]);
-     names[pin][i] = currentName[i];
-     //Serial.print(names[pin][i]);
+         //EEPROM.write((pin-2)*28+i, currentName[i]);  
+     names[pin][i] = currentName[i];//save all the names in an array
    }
    
-  for (int i=0; i< TOTAL_PINS;i++){
-    Serial.print(i);
-    Serial.print(" : ");
-    for (int j=0; j<28; j++){
-      Serial.print(names[i][j]);
-    }
-    Serial.print("\n");
-  }
   /*for( int i=0;i<28;i++){
     //currentName[i] = EEPROM.read((pin-2)*28+i);
     Serial.print(currentName[i]);
-  }
-  Serial.print("\n");
-   Serial.print (names[pin]);*/
-  
+  }*/
   
   if (IS_PIN_SERVO(pin) && mode != SERVO && servos[PIN_TO_SERVO(pin)].attached()) {
     servos[PIN_TO_SERVO(pin)].detach();
@@ -297,9 +285,41 @@ void reportDigitalCallback(byte port, int value)
   // pins configured as analog
 }
 
-void EEPROMWritingCallback(byte pin, int value){
-    
+void EEPROMWritingCallback(byte truc, int action)
+{
+  //Serial.println(action);  
+  if (action == 0){
+    //Serial.print("écrire");
+    for (int i=0; i < TOTAL_PINS; i++){
+      if (names[i][0]!=0){
+        for (int j = 0; j < 28 ; j++){
+             EEPROM.write((i/*-2*/)*28+j, names[i][j]);
+        }
+      }
+  }
+  
+  
+  
+  //Serial.print("EEPROM writing ! ");
+  
+    /*for( int i=0;i<TOTAL_PINS; i++){
+      Serial.print("pin ");
+      Serial.print(i);
+      Serial.print( " : " );
+      for (int j=0; j<28; j++){
+        Serial.print(EEPROM.read((i-2)*28+j));
+      }
+      Serial.println("");
+    }*/
+  } else if (action == 1){
+    //clear
+    //Serial.print("clear");
+    for (int i=0; i< 1024; i++)
+      EEPROM.write(i,0);
+  }
 }
+
+
 
 /*==============================================================================
  * SYSEX-BASED commands
@@ -451,7 +471,7 @@ void setup()
   //Firmata.attach(SET_PIN_NAME, setPinNameCallback);
   Firmata.attach(START_SYSEX, sysexCallback);
   Firmata.attach(SYSTEM_RESET, systemResetCallback);
-  //Firmata.attach(EEPROM_WRITING, EEPROMWritingCallback);  
+  Firmata.attach(EEPROM_WRITING, EEPROMWritingCallback);  
   
   Firmata.begin(57600);
   systemResetCallback();  // reset to default config
