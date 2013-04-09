@@ -287,35 +287,39 @@ void reportDigitalCallback(byte port, int value)
 
 void EEPROMWritingCallback(byte truc, int action)
 {
-  //Serial.println(action);  
   if (action == 0){
-    //Serial.print("écrire");
-    for (int i=0; i < TOTAL_PINS; i++){
-      if (names[i][0]!=0){
-        for (int j = 0; j < 28 ; j++){
-             EEPROM.write((i/*-2*/)*28+j, names[i][j]);
-        }
-      }
-  }
-  
-  
-  
-  //Serial.print("EEPROM writing ! ");
-  
-    /*for( int i=0;i<TOTAL_PINS; i++){
-      Serial.print("pin ");
-      Serial.print(i);
-      Serial.print( " : " );
-      for (int j=0; j<28; j++){
-        Serial.print(EEPROM.read((i-2)*28+j));
-      }
-      Serial.println("");
-    }*/
+    Serial.println("print");
+    for (int i=0; i < TOTAL_PINS; i++)
+      if (names[i][0]!=0)
+        for (int j = 0; j < 28 ; j++)
+             EEPROM.write((i)*28+j, names[i][j]); //TODO : où stocker exactement
   } else if (action == 1){
-    //clear
-    //Serial.print("clear");
+    Serial.println("clear");
     for (int i=0; i< 1024; i++)
       EEPROM.write(i,0);
+  } else if (action == 2 ){
+     Serial.println("load");
+     
+     
+     
+     for (int i=0; i < TOTAL_PINS; i++){
+        if (EEPROM.read((i)*28)!=0){
+           byte currentName[28];
+           for (int j = 0; j < 28 ; j++){
+               names[i][j] = EEPROM.read((i)*28+j);
+               currentName[j]= names[i][j];
+           }
+           if (i==2)
+           Firmata.sendSysex(FIRMATA_STRING, 28, currentName);
+        /*if (i==2)
+           for (int j=0; j<28; j++)
+           Serial.println(*currentName+j);*/
+        } 
+   }
+   
+   
+   
+   
   }
 }
 

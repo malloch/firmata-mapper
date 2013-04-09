@@ -515,6 +515,8 @@ void MyFrame::OnButton(wxCommandEvent &event)
     buf[1]=0;
   }else if (event.GetId() == 12547){
     buf[1]=1;
+  }else if (event.GetId() == 12548){
+    buf[1]=2;
   }
   port.Write(buf, 2);
   tx_count += 2;
@@ -753,8 +755,8 @@ void MyFrame::OnPort(wxCommandEvent &event)
 
 void MyFrame::OnIdle(wxIdleEvent &event)
 {
-	uint8_t buf[1024];
-	int r;
+    uint8_t buf[1024];
+    int r;
     if (dev)
         mdev_poll(dev, 0);
 	//printf("Idle event\n");
@@ -763,20 +765,20 @@ void MyFrame::OnIdle(wxIdleEvent &event)
 	r = port.Input_wait(40);
 	if (r > 0) {
 		r = port.Read(buf, sizeof(buf));
-		//cout << "r = " << r << ", buf = " << buf << "\n";
+		cout << (int*)*buf << endl;
 		if (r < 0) {
 			// error
 			return;
 		}
 		if (r > 0) {
-			// parse
-			rx_count += r;
-			for (int i=0; i < r; i++) {
-				//printf("%02X ", buf[i]);
-			}
-			//printf("\n");
-			Parse(buf, r);
-			UpdateStatus();
+		  // parse
+		  rx_count += r;
+		  for (int i=0; i < r; i++) {
+		       //printf("%02X ", buf[i]);
+		  }
+		  //printf("\n");
+		  Parse(buf, r);
+		  UpdateStatus();
 		}
 	} else if (r < 0) {
 		return;
@@ -826,14 +828,7 @@ void MyFrame::DoMessage(void)
 	uint8_t cmd = (parse_buf[0] & 0xF0);
 
 	
-	wxButton *EEPROMButton = new wxButton(scroll, 12546, _("write on EEPROM"), wxPoint(0, 0), wxDefaultSize, 0, wxDefaultValidator, _("EEPROM Button"));
 
-	add_item_to_grid(1, 0, EEPROMButton);
-
-	
-	wxButton *EEPROMClearButton = new wxButton(scroll, 12547, _("Clear EEPROM"), wxPoint(0, 0), wxDefaultSize, 0, wxDefaultValidator, _("EEPROM Clear Button"));
-
-	add_item_to_grid(1, 1, EEPROMClearButton);
 
 	//printf("message, %d bytes, %02X\n", parse_count, parse_buf[0]);
 
@@ -883,6 +878,7 @@ void MyFrame::DoMessage(void)
 
 	if (parse_buf[0] == START_SYSEX && parse_buf[parse_count-1] == END_SYSEX) {
 		// Sysex message
+
 		if (parse_buf[1] == REPORT_FIRMWARE) {
 			char name[140];
 			int len=0;
@@ -919,6 +915,26 @@ void MyFrame::DoMessage(void)
 			port.Write(buf, len);
 			tx_count += len;
 		} else if (parse_buf[1] == CAPABILITY_RESPONSE) {
+
+
+
+		  //EEPROM management
+		  wxButton *EEPROMButton = new wxButton(scroll, 12546, _("write on EEPROM"),\
+							wxPoint(0, 0), wxDefaultSize, 0,\
+							wxDefaultValidator, _("EEPROM Button"));
+		  add_item_to_grid(1, 0, EEPROMButton);
+
+		  wxButton *EEPROMClearButton = new wxButton(scroll, 12547, _("Clear EEPROM"),\
+							     wxPoint(0, 0), wxDefaultSize, 0,\
+							     wxDefaultValidator, _("EEPROM Clear Button"));
+		  add_item_to_grid(1, 1, EEPROMClearButton);
+
+		  wxButton *EEPROMLoadButton = new wxButton(scroll, 12548, _("Load EEPROM"),\
+							    wxPoint(0, 0), wxDefaultSize, 0,\
+							    wxDefaultValidator, _("EEPROM Load Button"));
+		  add_item_to_grid(1, 2, EEPROMLoadButton);
+
+
 		        int pin, i, n;
 			for (pin=0; pin < 128; pin++) {
 				pin_info[pin].supported_modes = 0;
@@ -1053,7 +1069,7 @@ MyApp::MyApp()
 
 bool MyApp::OnInit()
 {
-    MyFrame *frame = new MyFrame( NULL, -1, _("Firmata Mapper"), wxPoint(20,20), wxSize(400,700) );
+    MyFrame *frame = new MyFrame( NULL, -1, _("Firmata Mapper"), wxPoint(20,20), wxSize(500,800) );
     frame->Show( true );
 
     for (int i=0;i<128;i++)
