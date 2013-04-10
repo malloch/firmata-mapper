@@ -200,6 +200,7 @@ void MyFrame::add_pin(int pin)
 {
 	wxString *str = new wxString();
 	if (names[pin]==""){
+	  cout << "names vide" << endl;
 	  str->Printf(_("Pin %d"), pin);
 	}else{
 	  *str = wxString::FromAscii(names[pin].c_str());
@@ -508,6 +509,7 @@ void MyFrame::OnToggleButton(wxCommandEvent &event)
 
 void MyFrame::OnButton(wxCommandEvent &event)
 {  
+  cout << "clic" << endl; 
   uint8_t buf[3];
   buf[0]=0x07;
 
@@ -765,7 +767,7 @@ void MyFrame::OnIdle(wxIdleEvent &event)
 	r = port.Input_wait(40);
 	if (r > 0) {
 		r = port.Read(buf, sizeof(buf));
-		cout << (int*)*buf << endl;
+		cout << buf << endl;
 		if (r < 0) {
 			// error
 			return;
@@ -811,11 +813,18 @@ void MyFrame::Parse(const uint8_t *buf, int len)
 		} else if (*p & 0x80) {
 			parse_command_len = 1;
 			parse_count = 0;
+		} else if (*p == 0x71) {
+		  //cout << "charge les noms ! " << endl;
+		  parse_command_len = 29;
+		  parse_count = 0;
 		}
 		if (parse_count < (int)sizeof(parse_buf)) {
 			parse_buf[parse_count++] = *p;
+			//if (*buf==0x71)
+			  //cout << parse_count << " " << *p << endl;
 		}
 		if (parse_count == parse_command_len) {
+		  //cout << "domessage" << endl << endl;
 			DoMessage();
 			parse_count = parse_command_len = 0;
 		}
@@ -873,6 +882,22 @@ void MyFrame::DoMessage(void)
 			}
 		}
 		return;
+	}
+
+	if (parse_buf[0] == 0x71){
+	  int pin = (int)parse_buf[1];
+	  
+	  for (int i=0; i<28; i++)
+	    if (parse_buf[i+2]!=0)
+	      names[pin][i] = parse_buf[i+2];
+	  
+	  cout << "pin : " << pin << ", name : " << names[pin] << endl;
+
+	  pin_info[pin].name = names[pin];
+	  
+	  cout << pin_info[pin].name << endl;
+	    //UpdateStatus();
+
 	}
 
 
