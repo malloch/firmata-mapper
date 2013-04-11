@@ -79,6 +79,7 @@ wxMenu *port_menu;
 #define ANALOG_MAPPING_RESPONSE 0x6A
 #define REPORT_FIRMWARE         0x79 // report name and version of the firmware
 
+#define SIZE_MAX_NAME           4
 
 BEGIN_EVENT_TABLE(MyFrame,wxFrame)
 	EVT_MENU(wxID_ABOUT, MyFrame::OnAbout)
@@ -89,7 +90,7 @@ BEGIN_EVENT_TABLE(MyFrame,wxFrame)
         EVT_TOGGLEBUTTON(-1, MyFrame::OnToggleButton)
         EVT_BUTTON(-1, MyFrame::OnButton)
         EVT_TEXT_ENTER(-1, MyFrame::OnTextChanged)
-        EVT_CHAR(MyFrame::OnKey)//TAB (doesn't work)
+//EVT_CHAR(MyFrame::OnKey)//TAB (doesn't work)
 	EVT_SCROLL_THUMBTRACK(MyFrame::OnSliderDrag)
 	EVT_MENU_OPEN(MyMenu::OnShowPortList)
 	EVT_MENU_HIGHLIGHT(-1, MyMenu::OnHighlight)
@@ -200,7 +201,6 @@ void MyFrame::add_pin(int pin)
 {
 	wxString *str = new wxString();
 	if (names[pin]==""){
-	  cout << "names vide" << endl;
 	  str->Printf(_("Pin %d"), pin);
 	}else{
 	  *str = wxString::FromAscii(names[pin].c_str());
@@ -209,7 +209,7 @@ void MyFrame::add_pin(int pin)
 	wxTextCtrl *wxName = new wxTextCtrl(scroll, 15000+pin, *str , wxDefaultPosition, wxSize(150,30), wxTE_PROCESS_ENTER|wxTE_PROCESS_TAB, wxDefaultValidator, wxTextCtrlNameStr); 
 	//wxName->Connect(15000+pin, wxEVT_CHAR, (wxObjectEventFunction)&MyFrame::OnKey,NULL,this);
 	
-	wxName->SetMaxLength(28);
+	wxName->SetMaxLength(SIZE_MAX_NAME);
 
 	add_item_to_grid(pin+1, 0, wxName);
 
@@ -287,7 +287,7 @@ void MyFrame::OnModeChange(wxCommandEvent &event)
   if (sel.IsSameAs(_("Servo"))) mode = MODE_SERVO;
   if (mode != pin_info[pin].mode) {
     // send the mode change message
-    uint8_t buf[36];
+    uint8_t buf[SIZE_MAX_NAME+3];
     buf[0] = 0xF4;
     buf[1] = pin;
     buf[2] = mode;
@@ -300,8 +300,8 @@ void MyFrame::OnModeChange(wxCommandEvent &event)
       else
 	mdev_remove_input(dev, pin_info[pin].sig);
     }
-    char signame[32];
-    for (int i=0; i<32; i++){
+    char signame[SIZE_MAX_NAME];
+    for (int i=0; i<SIZE_MAX_NAME; i++){
       signame[i]='\0';
     }
     
@@ -309,7 +309,7 @@ void MyFrame::OnModeChange(wxCommandEvent &event)
       pin_info[pin].init = false;
     } else {
       pin_info[pin].init = true;
-      for (int i=0; i<28; i++){
+      for (int i=0; i<SIZE_MAX_NAME; i++){
 	signame[i]=(pin_info[pin].name)[i];
       }
     }
@@ -318,14 +318,14 @@ void MyFrame::OnModeChange(wxCommandEvent &event)
     switch (mode) {//to create the new signal with the right mode
     case MODE_INPUT:
       if (!pin_info[pin].init){
-	snprintf(signame, 32, "/digital/%i", pin);
+	snprintf(signame, SIZE_MAX_NAME, "/digital/%i", pin);
       }
       max = 1;
       pin_info[pin].sig = mdev_add_output(dev, signame, 1, 'i', unitsig, &min, &max);
       break;
     case MODE_OUTPUT:
       if (!pin_info[pin].init){
-	snprintf(signame, 32, "/digital/%i", pin);
+	snprintf(signame, SIZE_MAX_NAME, "/digital/%i", pin);
       }
       max = 1;
       pin_info[pin].sig = mdev_add_input(dev, signame, 1, 'i', unitsig, &min, &max,
@@ -333,14 +333,14 @@ void MyFrame::OnModeChange(wxCommandEvent &event)
       break;
     case MODE_ANALOG:
       if (!pin_info[pin].init){
-	snprintf(signame, 32, "/analog/%i", pin);
+	snprintf(signame, SIZE_MAX_NAME, "/analog/%i", pin);
       }
       max = 1023;
       pin_info[pin].sig = mdev_add_output(dev, signame, 1, 'i', unitsig, &min, &max);
       break;
     case MODE_PWM:
       if (!pin_info[pin].init){
-	snprintf(signame, 32, "/pwm/%i", pin);
+	snprintf(signame, SIZE_MAX_NAME, "/pwm/%i", pin);
       }	
       max = 255;
       pin_info[pin].sig = mdev_add_input(dev, signame, 1, 'i', 0, &min, &max,
@@ -348,7 +348,7 @@ void MyFrame::OnModeChange(wxCommandEvent &event)
       break;
     case MODE_SERVO:
        if (!pin_info[pin].init){
-	 snprintf(signame, 32, "/servo/%i", pin);
+	 snprintf(signame, SIZE_MAX_NAME, "/servo/%i", pin);
        }
       max = 180;
       pin_info[pin].sig = mdev_add_input(dev, signame, 1, 'i', unitsig, &min, &max,
@@ -357,18 +357,25 @@ void MyFrame::OnModeChange(wxCommandEvent &event)
       break;
     }
     //cout << "onModeChanged :" << signame << " " << pin_info[pin].name << endl;
-
-    for (int i = 0; i < 28 ; i++)
+    
+    /* for (int i = 0; i < SIZE_MAX_NAME ; i++)
       {	    
 	std::stringstream ss;
 	ss << std::hex << std::setfill('0');
 	ss << std::setw(2) << static_cast<unsigned>((int)signame[i]);
 	buf[i+3] = atoi((ss.str()).c_str());//string to integer
       }
-     port.Write(buf, 32);
-     tx_count += 32;    
-  }
-  
+     port.Write(buf, SIZE_MAX_NAME);
+     tx_count += SIZE_MAX_NAME;    
+  */
+
+
+    for (int i = 0; i < SIZE_MAX_NAME ; i++)
+	buf[i+3] = (uint8_t)signame[i];	
+    port.Write(buf, SIZE_MAX_NAME+3);
+    tx_count += SIZE_MAX_NAME+3;    
+
+  } 
   // create the 3rd column control for this mode
   if (mode == MODE_OUTPUT) {
     wxToggleButton *button = new  wxToggleButton(scroll, 7000+pin, 
@@ -508,9 +515,8 @@ void MyFrame::OnToggleButton(wxCommandEvent &event)
 }
 
 void MyFrame::OnButton(wxCommandEvent &event)
-{  
-  cout << "clic" << endl; 
-  uint8_t buf[3];
+{   
+  uint8_t buf[2];
   buf[0]=0x07;
 
   if (event.GetId() == 12546){
@@ -540,8 +546,8 @@ void MyFrame::OnTextChanged(wxCommandEvent &event)
   names[pin] = name;
   //cout << pin_info[pin].name  << endl;
 
-  uint8_t buf[36];
-  for (int i = 0; i<36;i++){
+  uint8_t buf[SIZE_MAX_NAME+3];
+  for (int i = 0; i<SIZE_MAX_NAME+3;i++){
     buf[i] = 0;
   }
     buf[0] = 0xF4;
@@ -556,8 +562,8 @@ void MyFrame::OnTextChanged(wxCommandEvent &event)
       else
 	mdev_remove_input(dev, pin_info[pin].sig);
     }
-    char signame[32];
-    for (int i=0; i<32; i++){
+    char signame[SIZE_MAX_NAME];
+    for (int i=0; i<SIZE_MAX_NAME; i++){
       signame[i]='\0';
     }
     
@@ -576,7 +582,7 @@ void MyFrame::OnTextChanged(wxCommandEvent &event)
     case MODE_INPUT:
       //cout << "ok input" << endl;
       if (!pin_info[pin].init){
-	snprintf(signame, 32, "/digital/%i", pin);
+	snprintf(signame, SIZE_MAX_NAME, "/digital/%i", pin);
       }
       max = 1;
       pin_info[pin].sig = mdev_add_output(dev, signame, 1, 'i', unitsig, &min, &max);
@@ -584,7 +590,7 @@ void MyFrame::OnTextChanged(wxCommandEvent &event)
     case MODE_OUTPUT:
       //cout << "ok output "<< signame << " " << pin_info[pin].init << endl;
       if (!pin_info[pin].init){
-	snprintf(signame, 32, "/digital/%i", pin);
+	snprintf(signame, SIZE_MAX_NAME, "/digital/%i", pin);
       }
       max = 1;
       pin_info[pin].sig = mdev_add_input(dev, signame, 1, 'i', unitsig, &min, &max,
@@ -592,14 +598,14 @@ void MyFrame::OnTextChanged(wxCommandEvent &event)
       break;
     case MODE_ANALOG:
       if (!pin_info[pin].init){
-	snprintf(signame, 32, "/analog/%i", pin);
+	snprintf(signame, SIZE_MAX_NAME, "/analog/%i", pin);
       }
       max = 1023;
       pin_info[pin].sig = mdev_add_output(dev, signame, 1, 'i', unitsig, &min, &max);
       break;
     case MODE_PWM:
       if (!pin_info[pin].init){
-	snprintf(signame, 32, "/pwm/%i", pin);
+	snprintf(signame, SIZE_MAX_NAME, "/pwm/%i", pin);
       }	
       max = 255;
       pin_info[pin].sig = mdev_add_input(dev, signame, 1, 'i', 0, &min, &max,
@@ -607,7 +613,7 @@ void MyFrame::OnTextChanged(wxCommandEvent &event)
       break;
     case MODE_SERVO:
        if (!pin_info[pin].init){
-	 snprintf(signame, 32, "/servo/%i", pin);
+	 snprintf(signame, SIZE_MAX_NAME, "/servo/%i", pin);
        }
       max = 180;
       pin_info[pin].sig = mdev_add_input(dev, signame, 1, 'i', unitsig, &min, &max,
@@ -616,7 +622,7 @@ void MyFrame::OnTextChanged(wxCommandEvent &event)
       break;
     }
 
-    for (int i = 0; i < 28 ; i++)
+    for (int i = 0; i < SIZE_MAX_NAME ; i++)
       {	
 	//std::ostringstream oss;
 	//oss << std::hex << (int)signame[i]; //à garder pour faire un convertisseur int/ascii
@@ -626,8 +632,8 @@ void MyFrame::OnTextChanged(wxCommandEvent &event)
 	buf[i+3] = (uint8_t)signame[i];	
 	//cout << (int)buf[i+3];
 	}
-    port.Write(buf, 32);
-    tx_count += 32;    
+    port.Write(buf, SIZE_MAX_NAME+3);
+    tx_count += SIZE_MAX_NAME+3;    
     //cout << endl;
    
 
@@ -682,7 +688,7 @@ void MyFrame::OnSliderDrag(wxScrollEvent &event)
 	UpdateStatus();
 }
 
-void MyFrame::OnKey(wxKeyEvent& event) //not used for the moment
+/*void MyFrame::OnKey(wxKeyEvent& event) //not used for the moment
 {
   cout << "onkey" << endl;
   if(event.GetKeyCode() ==  9)   
@@ -690,7 +696,7 @@ void MyFrame::OnKey(wxKeyEvent& event) //not used for the moment
       wxTextCtrl *textctrl = wxDynamicCast( event.GetEventObject(), wxTextCtrl );
       if( textctrl != NULL) textctrl->Navigate();
     }
-}
+}*/
 
 
 
@@ -767,7 +773,7 @@ void MyFrame::OnIdle(wxIdleEvent &event)
 	r = port.Input_wait(40);
 	if (r > 0) {
 		r = port.Read(buf, sizeof(buf));
-		cout << buf << endl;
+		cout << "réception : " <<  buf << endl;
 		if (r < 0) {
 			// error
 			return;
@@ -815,7 +821,7 @@ void MyFrame::Parse(const uint8_t *buf, int len)
 			parse_count = 0;
 		} else if (*p == 0x71) {
 		  //cout << "charge les noms ! " << endl;
-		  parse_command_len = 29;
+		  parse_command_len = SIZE_MAX_NAME+2;
 		  parse_count = 0;
 		}
 		if (parse_count < (int)sizeof(parse_buf)) {
@@ -886,18 +892,53 @@ void MyFrame::DoMessage(void)
 
 	if (parse_buf[0] == 0x71){
 	  int pin = (int)parse_buf[1];
+	  if (pin>1){
+	  for (int i=0; i<SIZE_MAX_NAME; i++){
+	    names[pin][i]=0;
+	    //(pin_info[pin].name)[i] = 0;
+	  }
 	  
-	  for (int i=0; i<28; i++)
-	    if (parse_buf[i+2]!=0)
-	      names[pin][i] = parse_buf[i+2];
-	  
-	  cout << "pin : " << pin << ", name : " << names[pin] << endl;
+	  (pin_info[pin].name).resize(SIZE_MAX_NAME);
 
-	  pin_info[pin].name = names[pin];
+	  cout << "pin : " << pin << ", name : ";
+	  //char recupName[SIZE_MAX_NAME];
+
+	  for (int i=0; i<SIZE_MAX_NAME; i++){
+	    (pin_info[pin].name)[i] =(char)parse_buf[i+2];
+	    
+	    
+	    //std::ostringstream oss;
+	    //oss << (int)parse_buf[i+2]; //à garder pour faire un convertisseur int/ascii
+	    
+	    //strcat((char*)(pin_info[pin].name)), (char)parse_buf[i+2]); 
+	    //buf[i+3] = atoi((oss.str()).c_str());//string to integer
+
+
+	    //names[pin][i] = (char)parse_buf[i+2];
+
+
+	    //strcpy((char*)(pin_info[pin].name), parse_buf[i+2]);  
+	    //cout << (pin_info[pin].name)[i];
+	    
+	    //recupName[i] = (int)parse_buf[i+2];
+	    //buf[i+3] = atoi((oss.str()).c_str());//string to integer
+	    // strcat(recupName, oss.str());
 	  
-	  cout << pin_info[pin].name << endl;
+
+
+
+	  }
+	  
+	      
+	      //string test = 9; //    pin_info[pin].name;
+      
+	  //cout << test << endl;
+	  //cout << endl;
+	  //pin_info[pin].name = recupName;
+	  names[pin] = pin_info[pin].name;
+	  cout << "suuper nom ! " <<  names[pin] << "fin du super nom! " << /*(pin_info[pin].name)*/ endl;
 	    //UpdateStatus();
-
+	  }
 	}
 
 

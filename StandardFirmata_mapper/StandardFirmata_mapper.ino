@@ -61,7 +61,7 @@ unsigned long previousMillis;       // for comparison with currentMillis
 int samplingInterval = 19;          // how often to run the main loop (in ms)
 
 /*to stock the name of the signals*/
-byte names[TOTAL_PINS][28];
+byte names[TOTAL_PINS][SIZE_MAX_NAME];
 
 Servo servos[MAX_SERVOS];
 /*==============================================================================
@@ -109,17 +109,16 @@ void checkDigitalInputs(void)
 /* sets the pin mode to the correct state and sets the relevant bits in the
  * two bit-arrays that track Digital I/O and PWM status
  */
-void setPinPropCallback(byte pin, int mode, byte currentName[28])
+void setPinPropCallback(byte pin, int mode, byte currentName[SIZE_MAX_NAME])
 {
-  for (int i=0; i<28; i++){
-         //EEPROM.write((pin-2)*28+i, currentName[i]);  
+  
+  //TODO: put it in an independant callback (setNameCallback) 
+
+  for (int i=0; i<SIZE_MAX_NAME; i++)
      names[pin][i] = currentName[i];//save all the names in an array
-   }
-   
-  /*for( int i=0;i<28;i++){
-    //currentName[i] = EEPROM.read((pin-2)*28+i);
-    Serial.print(currentName[i]);
-  }*/
+
+     
+
   
   if (IS_PIN_SERVO(pin) && mode != SERVO && servos[PIN_TO_SERVO(pin)].attached()) {
     servos[PIN_TO_SERVO(pin)].detach();
@@ -288,29 +287,49 @@ void reportDigitalCallback(byte port, int value)
 void EEPROMWritingCallback(byte truc, int action)
 {
   if (action == 0){
-    for (int i=0; i < TOTAL_PINS; i++)
-      if (names[i][0]!=0)
-        for (int j = 0; j < 28 ; j++)
-             EEPROM.write((i)*28+j, names[i][j]); //TODO : où stocker exactement
+    
+    
+    
+      for (int i=0; i < TOTAL_PINS; i++)
+          if (names[i][0]!=0){
+              //Serial.print("pin ");
+              //Serial.print(i);
+              //Serial.print(" : ");
+              for (int j = 0; j < SIZE_MAX_NAME; j++){
+                     EEPROM.write(i*SIZE_MAX_NAME + j, names[i][j]); //TODO : où stocker exactement
+                     //Serial.print("place ");
+                      //Serial.print(j);
+                      //Serial.print(" : ");
+                     //Serial.print( names[i][j]);
+              }
+              //Serial.println();
+          }
+      
+      
+      
+      
   } else if (action == 1){
-    for (int i=0; i< 1024; i++)
+    for (int i=0; i< EEPROM_SIZE; i++)
       EEPROM.write(i,0);
+    for (int i=0; i<TOTAL_PINS; i++)
+     for (int j=0; j < SIZE_MAX_NAME;j++)
+        names[i][j] = 0;
   } else if (action == 2 ){
      
      
      
-     for (int i=0; i < 17; i++){
+     for (int i=0; i < TOTAL_PINS; i++){
          //Serial.write(EEPROM.read((i)*28));
         // if (EEPROM.read((i)*28)!=0)
 
              Serial.write(FIRMATA_STRING);
              Serial.write(i);
              
-             for (int j = 0; j < 28 ; j++){
+             for (int j = 0; j < SIZE_MAX_NAME ; j++){
                 //if (EEPROM.read((i)*28+j)!=0)
                    //names[i][j] = EEPROM.read((i)*28+j);
                 //byte truc = EEPROM.read((i)*28+j);
-                Serial.write(EEPROM.read(i*28+j));
+                Serial.write(EEPROM.read(i*SIZE_MAX_NAME +j));
              }
    
    
@@ -473,6 +492,10 @@ void setup()
   Firmata.attach(SYSTEM_RESET, systemResetCallback);
   Firmata.attach(EEPROM_WRITING, EEPROMWritingCallback);  
   
+  for (int i=0; i<TOTAL_PINS; i++)
+     for (int j=0; j<SIZE_MAX_NAME;j++)
+        names[i][j] = 0;
+        
   Firmata.begin(57600);
   systemResetCallback();  // reset to default config
 }
