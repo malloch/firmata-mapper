@@ -79,7 +79,7 @@ wxMenu *port_menu;
 #define ANALOG_MAPPING_RESPONSE 0x6A
 #define REPORT_FIRMWARE         0x79 // report name and version of the firmware
 
-#define SIZE_MAX_NAME           5
+#define SIZE_MAX_NAME           10
 
 BEGIN_EVENT_TABLE(MyFrame,wxFrame)
 	EVT_MENU(wxID_ABOUT, MyFrame::OnAbout)
@@ -200,11 +200,10 @@ void MyFrame::add_item_to_grid(int row, int col, wxWindow *item)
 void MyFrame::add_pin(int pin)
 {
 	wxString *str = new wxString();
-	if (names[pin]==""){
+	if ((names[pin]==""))
 	  str->Printf(_("Pin %d"), pin);
-	}else{
+	else
 	  *str = wxString::FromAscii(names[pin].c_str());
-	}
 	  
 	wxTextCtrl *wxName = new wxTextCtrl(scroll, 15000+pin, *str , wxDefaultPosition, wxSize(150,30), wxTE_PROCESS_ENTER|wxTE_PROCESS_TAB, wxDefaultValidator, wxTextCtrlNameStr); 
 	//wxName->Connect(15000+pin, wxEVT_CHAR, (wxObjectEventFunction)&MyFrame::OnKey,NULL,this);
@@ -313,6 +312,10 @@ void MyFrame::OnModeChange(wxCommandEvent &event)
 	signame[i]=(pin_info[pin].name)[i];
       }
     }
+    for (int i = 0; i < SIZE_MAX_NAME ; i++)
+	buf[i+3] = (uint8_t)signame[i];	
+    port.Write(buf, SIZE_MAX_NAME+3);
+    tx_count += SIZE_MAX_NAME+3;    
     char *unitsig = 0;
     int min = 0, max;
     switch (mode) {//to create the new signal with the right mode
@@ -368,12 +371,6 @@ void MyFrame::OnModeChange(wxCommandEvent &event)
      port.Write(buf, SIZE_MAX_NAME);
      tx_count += SIZE_MAX_NAME;    
   */
-
-
-    for (int i = 0; i < SIZE_MAX_NAME ; i++)
-	buf[i+3] = (uint8_t)signame[i];	
-    port.Write(buf, SIZE_MAX_NAME+3);
-    tx_count += SIZE_MAX_NAME+3;    
 
   } 
   // create the 3rd column control for this mode
@@ -539,12 +536,10 @@ void MyFrame::OnTextChanged(wxCommandEvent &event)
   wxTextCtrl *txt = (wxTextCtrl*)FindWindowById(id, scroll);
   wxString wxName;
   wxName = txt->GetValue();
-  //  cout << wxName.length() << endl;
   std::string name = wx2std(wxName);
   
   pin_info[pin].name = name;
   names[pin] = name;
-  //cout << pin_info[pin].name  << endl;
 
   uint8_t buf[SIZE_MAX_NAME+3];
   for (int i = 0; i<SIZE_MAX_NAME+3;i++){
@@ -553,7 +548,6 @@ void MyFrame::OnTextChanged(wxCommandEvent &event)
     buf[0] = 0xF4;
     buf[1] = pin;
     buf[2] = pin_info[pin].mode;
-    //pin_info[pin].mode = mode;
     pin_info[pin].value = 0;
     if (pin_info[pin].sig) {//to delete the corresponding signal
       mapper_db_signal props = msig_properties(pin_info[pin].sig);
@@ -576,69 +570,54 @@ void MyFrame::OnTextChanged(wxCommandEvent &event)
       }
     }
 
+    for (int i = 0; i < SIZE_MAX_NAME ; i++)
+      {	
+	//std::ostringstream oss;
+	//oss << std::hex << (int)signame[i]; //à garder pour faire un convertisseur int/ascii
+	//buf[i+3] = atoi((oss.str()).c_str());//string to integer
+	buf[i+3] = (uint8_t)signame[i];	
+	}
+    port.Write(buf, SIZE_MAX_NAME+3);
+    tx_count += SIZE_MAX_NAME+3; 
+
     char *unitsig = 0;
     int min = 0, max;
     switch (pin_info[pin].mode) {//to create the new signal with the right mode
     case MODE_INPUT:
-      //cout << "ok input" << endl;
-      if (!pin_info[pin].init){
+      if (!pin_info[pin].init)
 	snprintf(signame, SIZE_MAX_NAME, "/digital/%i", pin);
-      }
       max = 1;
       pin_info[pin].sig = mdev_add_output(dev, signame, 1, 'i', unitsig, &min, &max);
       break;
     case MODE_OUTPUT:
-      //cout << "ok output "<< signame << " " << pin_info[pin].init << endl;
-      if (!pin_info[pin].init){
+      if (!pin_info[pin].init)
 	snprintf(signame, SIZE_MAX_NAME, "/digital/%i", pin);
-      }
       max = 1;
       pin_info[pin].sig = mdev_add_input(dev, signame, 1, 'i', unitsig, &min, &max,
 					 MapperSignalHandler, (void *)pin);
       break;
     case MODE_ANALOG:
-      if (!pin_info[pin].init){
+      if (!pin_info[pin].init)
 	snprintf(signame, SIZE_MAX_NAME, "/analog/%i", pin);
-      }
       max = 1023;
       pin_info[pin].sig = mdev_add_output(dev, signame, 1, 'i', unitsig, &min, &max);
       break;
     case MODE_PWM:
-      if (!pin_info[pin].init){
+      if (!pin_info[pin].init)
 	snprintf(signame, SIZE_MAX_NAME, "/pwm/%i", pin);
-      }	
       max = 255;
       pin_info[pin].sig = mdev_add_input(dev, signame, 1, 'i', 0, &min, &max,
 					 MapperSignalHandler, (void *)pin);
       break;
     case MODE_SERVO:
-       if (!pin_info[pin].init){
+       if (!pin_info[pin].init)
 	 snprintf(signame, SIZE_MAX_NAME, "/servo/%i", pin);
-       }
       max = 180;
       pin_info[pin].sig = mdev_add_input(dev, signame, 1, 'i', unitsig, &min, &max,
 					 MapperSignalHandler, (void *)pin);
     default:
       break;
     }
-
-    for (int i = 0; i < SIZE_MAX_NAME ; i++)
-      {	
-	//std::ostringstream oss;
-	//oss << std::hex << (int)signame[i]; //à garder pour faire un convertisseur int/ascii
-	//buf[i+3] = atoi((oss.str()).c_str());//string to integer
-
-
-	buf[i+3] = (uint8_t)signame[i];	
-	//cout << (int)buf[i+3];
-	}
-    port.Write(buf, SIZE_MAX_NAME+3);
-    tx_count += SIZE_MAX_NAME+3;    
-    //cout << endl;
-   
-
-    new_size();
-
 }
 
 std::string MyFrame::wx2std(wxString s){
@@ -773,7 +752,7 @@ void MyFrame::OnIdle(wxIdleEvent &event)
 	r = port.Input_wait(40);
 	if (r > 0) {
 		r = port.Read(buf, sizeof(buf));
-		//cout << "réception : " <<  buf << endl;
+		//cout << "réception : " <<  (int)*buf << endl;
 		if (r < 0) {
 			// error
 			return;
@@ -892,26 +871,21 @@ void MyFrame::DoMessage(void)
 
 	if (parse_buf[0] == 0x71){
 	  int pin = (int)parse_buf[1];
-	  if (pin>1){
-	  for (int i=0; i<SIZE_MAX_NAME; i++){
-	    names[pin][i]=0;
-	    (pin_info[pin].name)[i] = 0;
-	  }
-	  
-	  (pin_info[pin].name).resize(SIZE_MAX_NAME);
-
-	  cout << "pin : " << pin << ", name : ";
-	  for (int i=0; i<SIZE_MAX_NAME; i++){
-	    (pin_info[pin].name)[i] =(char)parse_buf[i+2];
-
-	  }
-	  
-
-	  names[pin] = pin_info[pin].name;
-	  cout <<   names[pin] <<  endl;
-
-	  add_pin(pin);
-
+	  if (pin>1){//TODO: make it independant of the arduino
+	    (pin_info[pin].name).resize(SIZE_MAX_NAME);
+	    names[pin].resize(SIZE_MAX_NAME);
+	    bool isEmpty = true;
+	    for (int i=0; i<SIZE_MAX_NAME; i++){
+		(pin_info[pin].name)[i] =parse_buf[i+2];
+		if (parse_buf[i+2]!=0)
+		  isEmpty= false;
+	    }
+	    names[pin] = pin_info[pin].name;
+	    if (isEmpty){
+	      (pin_info[pin].name).clear();
+	      names[pin].clear();
+	    }
+	    add_pin(pin);
 	  }
 	}
 

@@ -288,7 +288,7 @@ void EEPROMWritingCallback(byte truc, int action)
 {
   if (action == 0){
       for (int i=0; i < TOTAL_PINS; i++)
-          if (names[i][0]!=0)
+          //if (names[i][0]!=0)
               for (int j = 0; j < SIZE_MAX_NAME; j++)
                      EEPROM.write(i*SIZE_MAX_NAME + j, names[i][j]); //TODO : où stocker exactement  
   } else if (action == 1){
@@ -298,11 +298,13 @@ void EEPROMWritingCallback(byte truc, int action)
           for (int j=0; j < SIZE_MAX_NAME;j++)
                names[i][j] = 0;
   } else if (action == 2 ){
-     for (int i=0; i < TOTAL_PINS; i++){
+       for (int i=0; i < TOTAL_PINS; i++){
              Serial.write(FIRMATA_STRING);
              Serial.write(i);
-             for (int j = 0; j < SIZE_MAX_NAME ; j++)
+             for (int j = 0; j < SIZE_MAX_NAME ; j++){
+                //if (EEPROM.read(i*SIZE_MAX_NAME +j)==0)
                 Serial.write(EEPROM.read(i*SIZE_MAX_NAME +j));
+             }
      }
   }
 }
@@ -333,7 +335,7 @@ void sysexCallback(byte command, byte argc, byte *argv)
         if (servos[PIN_TO_SERVO(pin)].attached())
           servos[PIN_TO_SERVO(pin)].detach();
         servos[PIN_TO_SERVO(pin)].attach(PIN_TO_DIGITAL(pin), minPulse, maxPulse);
-        setPinPropCallback(pin, SERVO, names[pin]); // /!\ do not be commented, just for a test
+        //setPinPropCallback(pin, SERVO, names[pin]); // /!\ do not be commented, just for a test
       }
     }
     break;
@@ -425,10 +427,10 @@ void systemResetCallback()
   for (byte i=0; i < TOTAL_PINS; i++) {
     if (IS_PIN_ANALOG(i)) {
       // turns off pullup, configures everything
-      setPinPropCallback(i, ANALOG, names[i]); // /!\ do not be commented, just for a test
+      //setPinPropCallback(i, ANALOG, names[i]); // /!\ do not be commented, just for a test
     } else {
       // sets the output to 0, configures portConfigInputs
-      setPinPropCallback(i, OUTPUT, names[i]); // /!\ do not be commented, just for a test
+      //setPinPropCallback(i, OUTPUT, names[i]); // /!\ do not be commented, just for a test
     }
   }
   // by default, do not report any analog inputs
