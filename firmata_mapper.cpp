@@ -79,7 +79,7 @@ wxMenu *port_menu;
 #define ANALOG_MAPPING_RESPONSE 0x6A
 #define REPORT_FIRMWARE         0x79 // report name and version of the firmware
 
-#define SIZE_MAX_NAME           4
+#define SIZE_MAX_NAME           5
 
 BEGIN_EVENT_TABLE(MyFrame,wxFrame)
 	EVT_MENU(wxID_ABOUT, MyFrame::OnAbout)
@@ -773,7 +773,7 @@ void MyFrame::OnIdle(wxIdleEvent &event)
 	r = port.Input_wait(40);
 	if (r > 0) {
 		r = port.Read(buf, sizeof(buf));
-		cout << "réception : " <<  buf << endl;
+		//cout << "réception : " <<  buf << endl;
 		if (r < 0) {
 			// error
 			return;
@@ -895,49 +895,23 @@ void MyFrame::DoMessage(void)
 	  if (pin>1){
 	  for (int i=0; i<SIZE_MAX_NAME; i++){
 	    names[pin][i]=0;
-	    //(pin_info[pin].name)[i] = 0;
+	    (pin_info[pin].name)[i] = 0;
 	  }
 	  
 	  (pin_info[pin].name).resize(SIZE_MAX_NAME);
 
 	  cout << "pin : " << pin << ", name : ";
-	  //char recupName[SIZE_MAX_NAME];
-
 	  for (int i=0; i<SIZE_MAX_NAME; i++){
 	    (pin_info[pin].name)[i] =(char)parse_buf[i+2];
-	    
-	    
-	    //std::ostringstream oss;
-	    //oss << (int)parse_buf[i+2]; //à garder pour faire un convertisseur int/ascii
-	    
-	    //strcat((char*)(pin_info[pin].name)), (char)parse_buf[i+2]); 
-	    //buf[i+3] = atoi((oss.str()).c_str());//string to integer
-
-
-	    //names[pin][i] = (char)parse_buf[i+2];
-
-
-	    //strcpy((char*)(pin_info[pin].name), parse_buf[i+2]);  
-	    //cout << (pin_info[pin].name)[i];
-	    
-	    //recupName[i] = (int)parse_buf[i+2];
-	    //buf[i+3] = atoi((oss.str()).c_str());//string to integer
-	    // strcat(recupName, oss.str());
-	  
-
-
 
 	  }
 	  
-	      
-	      //string test = 9; //    pin_info[pin].name;
-      
-	  //cout << test << endl;
-	  //cout << endl;
-	  //pin_info[pin].name = recupName;
+
 	  names[pin] = pin_info[pin].name;
-	  cout << "suuper nom ! " <<  names[pin] << "fin du super nom! " << /*(pin_info[pin].name)*/ endl;
-	    //UpdateStatus();
+	  cout <<   names[pin] <<  endl;
+
+	  add_pin(pin);
+
 	  }
 	}
 
