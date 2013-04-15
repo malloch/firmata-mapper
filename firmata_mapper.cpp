@@ -28,9 +28,10 @@
 #include "serial.h"
 #include "mapper/mapper.h"
 #include <iostream>
-#include <sstream>
-#include <iomanip>
-
+//#include <sstream>
+//#include <iomanip>
+#include <fstream>
+#include <string>
 
 
 using namespace std;
@@ -58,6 +59,7 @@ pin_t pin_info[128];
 wxString firmata_name;
 unsigned int rx_count, tx_count;
 wxMenu *port_menu;
+wxMenu *file_menu;
 
 #define MODE_INPUT    0x00
 #define MODE_OUTPUT   0x01
@@ -79,9 +81,14 @@ wxMenu *port_menu;
 #define ANALOG_MAPPING_RESPONSE 0x6A
 #define REPORT_FIRMWARE         0x79 // report name and version of the firmware
 
-#define SIZE_MAX_NAME           10
+#define SIZE_MAX_NAME           12
+#define SIZE_MAX_UNIT           5
 
+#define SAVE_FILE_ID            6323
+#define LOAD_FILE_ID            6324
 BEGIN_EVENT_TABLE(MyFrame,wxFrame)
+        EVT_MENU(SAVE_FILE_ID, MyFrame::OnSaveFile)
+        EVT_MENU(LOAD_FILE_ID, MyFrame::OnLoadFile)
 	EVT_MENU(wxID_ABOUT, MyFrame::OnAbout)
 	EVT_MENU(wxID_EXIT, MyFrame::OnQuit)
 	EVT_MENU_RANGE(9000, 9999, MyFrame::OnPort)
@@ -108,9 +115,14 @@ MyFrame::MyFrame( wxWindow *parent, wxWindowID id, const wxString &title,
 	port.Set_baud(57600);
 	wxMenuBar *menubar = new wxMenuBar;
 	wxMenu *menu = new wxMenu;
+	menu->Append( SAVE_FILE_ID, _("Save configuration"), _(""));
+	menu->Enable( SAVE_FILE_ID, false);
+	menu->Append( LOAD_FILE_ID, _("Load configuration"), _(""));
+	menu->Enable( LOAD_FILE_ID, false);
 	menu->Append( wxID_ABOUT, _("About"), _(""));
 	menu->Append( wxID_EXIT, _("Quit"), _(""));
 	menubar->Append(menu, _("File"));
+	file_menu = menu;
 	menu = new wxMenu;
 	menubar->Append(menu, _("Port"));
 	SetMenuBar(menubar);
@@ -124,7 +136,7 @@ MyFrame::MyFrame( wxWindow *parent, wxWindowID id, const wxString &title,
 
 	init_data();
 
-	
+	//cout << "valeur : " << VALEUR_TEST << endl;
 #if 0
 	// For testing only, add many controls so something
 	// appears in the window without requiring any
@@ -168,10 +180,10 @@ void MyFrame::add_item_to_grid(int row, int col, wxWindow *item)
 	int num_row = grid->GetRows();
 
 	if (num_row < row + 1) {
-		printf("adding rows, row=%d, num_row=%d\n", row, num_row);
+	  //printf("adding rows, row=%d, num_row=%d\n", row, num_row);
 		grid->SetRows(row + 1);
 		while (num_row < row + 1) {
-			printf("  add %d static text\n", num_col);
+		  //printf("  add %d static text\n", num_col);
 			for (int i=0; i<num_col; i++) {
 				grid->Add(new wxStaticText(scroll, -1, _("        ")));
 			}
@@ -192,7 +204,7 @@ void MyFrame::add_item_to_grid(int row, int col, wxWindow *item)
 			}
 		}
 	} else {
-		printf("WARNING, using insert\n");
+	  printf("WARNING, using insert\n");
 		grid->Insert(index, item);
 	}
 }
@@ -226,8 +238,8 @@ void MyFrame::add_pin(int pin)
 	if (pin_info[pin].mode == MODE_ANALOG) modes->SetStringSelection(_("Analog"));
 	if (pin_info[pin].mode == MODE_PWM) modes->SetStringSelection(_("PWM"));
 	if (pin_info[pin].mode == MODE_SERVO) modes->SetStringSelection(_("Servo"));
-	printf("create choice, mode = %d (%s)\n", pin_info[pin].mode,
-		(const char *)modes->GetStringSelection());
+	//printf("create choice, mode = %d (%s)\n", pin_info[pin].mode,
+	//	(const char *)modes->GetStringSelection());
 	
 	pin_info[pin].name = names[pin];
 	add_item_to_grid(pin+1, 1, modes);
@@ -257,10 +269,14 @@ void MyFrame::UpdateStatus(void)
 {
 	wxString status;
 	if (port.Is_open()) {
+	  file_menu->Enable( LOAD_FILE_ID, true);
+	  file_menu->Enable( SAVE_FILE_ID, true);
 		status.Printf(port.get_name() + _("    ") +
 			firmata_name + _("    Tx:%u Rx:%u"),
 			tx_count, rx_count);
 	} else {
+	  file_menu->Enable( LOAD_FILE_ID, false);
+	  file_menu->Enable( SAVE_FILE_ID, false);
 		status = _("Please choose serial port");
 	}
 	SetStatusText(status);
@@ -275,8 +291,8 @@ void MyFrame::OnModeChange(wxCommandEvent &event)
   if (pin < 0 || pin > 127) return;
   wxChoice *ch = (wxChoice *)FindWindowById(id, scroll);
   wxString sel = ch->GetStringSelection();
-  printf("Mode Change, id = %d, pin=%d, ", id, pin);
-  printf("Mode = %s\n", (const char *)sel);
+  //printf("Mode Change, id = %d, pin=%d, ", id, pin);
+  //printf("Mode = %s\n", (const char *)sel);
   int mode = 255;
 
   if (sel.IsSameAs(_("Input"))) mode = MODE_INPUT;
@@ -312,10 +328,10 @@ void MyFrame::OnModeChange(wxCommandEvent &event)
 	signame[i]=(pin_info[pin].name)[i];
       }
     }
-    for (int i = 0; i < SIZE_MAX_NAME ; i++)
-	buf[i+3] = (uint8_t)signame[i];	
-    port.Write(buf, SIZE_MAX_NAME+3);
-    tx_count += SIZE_MAX_NAME+3;    
+    /*for (int i = 0; i < SIZE_MAX_NAME ; i++)
+      buf[i+3] = (uint8_t)signame[i];*/	
+    port.Write(buf, /*SIZE_MAX_NAME+*/3);
+    tx_count += /*SIZE_MAX_NAME+*/3;    
     char *unitsig = 0;
     int min = 0, max;
     switch (mode) {//to create the new signal with the right mode
@@ -487,7 +503,7 @@ void MyFrame::OnToggleButton(wxCommandEvent &event)
 	if (pin < 0 || pin > 127) return;
 	wxToggleButton *button = (wxToggleButton *)FindWindowById(id, scroll);
 	int val = button->GetValue() ? 1 : 0;
-	printf("Toggle Button, id = %d, pin=%d, val=%d\n", id, pin, val);
+	//printf("Toggle Button, id = %d, pin=%d, val=%d\n", id, pin, val);
 	button->SetLabel(val ? _("High") : _("Low"));
 	pin_info[pin].value = val;
 	int port_num = pin / 8;
@@ -541,13 +557,13 @@ void MyFrame::OnTextChanged(wxCommandEvent &event)
   pin_info[pin].name = name;
   names[pin] = name;
 
-  uint8_t buf[SIZE_MAX_NAME+3];
-  for (int i = 0; i<SIZE_MAX_NAME+3;i++){
+  uint8_t buf[SIZE_MAX_NAME+2]; //+3];
+  for (int i = 0; i<SIZE_MAX_NAME+/*3*/2;i++){
     buf[i] = 0;
   }
-    buf[0] = 0xF4;
+    buf[0] = 0x08;
     buf[1] = pin;
-    buf[2] = pin_info[pin].mode;
+    //buf[2] = pin_info[pin].mode;
     pin_info[pin].value = 0;
     if (pin_info[pin].sig) {//to delete the corresponding signal
       mapper_db_signal props = msig_properties(pin_info[pin].sig);
@@ -575,12 +591,20 @@ void MyFrame::OnTextChanged(wxCommandEvent &event)
 	//std::ostringstream oss;
 	//oss << std::hex << (int)signame[i]; //à garder pour faire un convertisseur int/ascii
 	//buf[i+3] = atoi((oss.str()).c_str());//string to integer
-	buf[i+3] = (uint8_t)signame[i];	
+	buf[i+/*3*/2] = (uint8_t)signame[i];	
 	}
-    port.Write(buf, SIZE_MAX_NAME+3);
-    tx_count += SIZE_MAX_NAME+3; 
+    port.Write(buf, SIZE_MAX_NAME+/*3*/2);
+    tx_count += SIZE_MAX_NAME+/*3*/2; 
 
-    char *unitsig = 0;
+
+    // TODO : change only the name --> add a function in Libmapper
+    
+    // pin_info[pin].sig -> name = signame;
+    //mapper_db_signal_modify_name(pin_info[pin].sig, signame);
+    //    mdev_modify_name(pin_info[pin].sig, signame);
+
+
+    /*char *unitsig = 0;
     int min = 0, max;
     switch (pin_info[pin].mode) {//to create the new signal with the right mode
     case MODE_INPUT:
@@ -617,7 +641,7 @@ void MyFrame::OnTextChanged(wxCommandEvent &event)
 					 MapperSignalHandler, (void *)pin);
     default:
       break;
-    }
+      }*/
 }
 
 std::string MyFrame::wx2std(wxString s){
@@ -689,13 +713,13 @@ void MyFrame::OnPort(wxCommandEvent &event)
     dev = 0;
 	port.Close();
 	init_data();
-	printf("OnPort, id = %d, name = %s\n", id, (const char *)name);
+	//printf("OnPort, id = %d, name = %s\n", id, (const char *)name);
 	if (id == 9000) return;
 
 	port.Open(name);
 	port.Set_baud(57600);
 	if (port.Is_open()) {
-		printf("port is open\n");
+	  //printf("port is open\n");
 		firmata_name = _("");
 		rx_count = tx_count = 0;
 		parse_count = 0;
@@ -997,8 +1021,40 @@ void MyFrame::DoMessage(void)
 	}
 }
 
+void MyFrame::OnSaveFile( wxCommandEvent &event)
+{
+  //cout << "save configuration ! " << endl;
+  string my_file;
+  cout << "Give a name to this configuration file : " << endl;
+  cin >> my_file;
 
+  ofstream fichier(my_file.c_str(), ios::out);
+  if (fichier){
+    cout <<  "ok ! " << endl;
+    fichier << "test" << endl;
+    fichier.close();
+  }
+}
 
+void MyFrame::OnLoadFile( wxCommandEvent &event)
+{
+  //  cout << "chargement de configuration ! " << endl;
+  
+  string my_file;
+  cout << "Name of the file to load ? " << endl;
+  cin >> my_file;
+
+  ifstream fichier(my_file.c_str(), ios::in);
+  if (fichier){
+    cout <<  "ok ! " << endl;
+    string contenu;
+    getline(fichier, contenu);
+    cout << contenu << endl;
+    fichier.close();
+  } else {
+    cout << "this file doesn't exist, try again" << endl;
+  }
+}
 
 void MyFrame::OnAbout( wxCommandEvent &event )
 {
@@ -1044,7 +1100,7 @@ void MyMenu::OnShowPortList(wxMenuEvent &event)
 	int num, any=0;
 
 	menu = event.GetMenu();
-	printf("OnShowPortList, %s\n", (const char *)menu->GetTitle());
+	//printf("OnShowPortList, %s\n", (const char *)menu->GetTitle());
 	if (menu != port_menu) return;
 
 	wxMenuItemList old_items = menu->GetMenuItems();

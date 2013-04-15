@@ -53,6 +53,8 @@ private:
 	void UpdateStatus(void);
 	void Parse(const uint8_t *buf, int len);
 	void DoMessage(void);
+	void OnSaveFile(wxCommandEvent &event);
+	void OnLoadFile(wxCommandEvent &event);
 	void OnAbout(wxCommandEvent &event);
 	void OnQuit(wxCommandEvent &event);
 	void OnIdle(wxIdleEvent &event);
