@@ -604,7 +604,7 @@ void MyFrame::OnTextChanged(wxCommandEvent &event)
     //    mdev_modify_name(pin_info[pin].sig, signame);
 
 
-    /*char *unitsig = 0;
+    char *unitsig = 0;
     int min = 0, max;
     switch (pin_info[pin].mode) {//to create the new signal with the right mode
     case MODE_INPUT:
@@ -641,7 +641,7 @@ void MyFrame::OnTextChanged(wxCommandEvent &event)
 					 MapperSignalHandler, (void *)pin);
     default:
       break;
-      }*/
+      }
 }
 
 std::string MyFrame::wx2std(wxString s){
@@ -1023,36 +1023,77 @@ void MyFrame::DoMessage(void)
 
 void MyFrame::OnSaveFile( wxCommandEvent &event)
 {
-  //cout << "save configuration ! " << endl;
   string my_file;
-  cout << "Give a name to this configuration file : " << endl;
-  cin >> my_file;
+  //string complete_way; // TODO: put the name betwin "test/" and ".mapconf" (doesn't work for the moment)
+  //complete_way = "test/";
 
+  wxTextCtrl* tc = new wxTextCtrl(this, -1, wxT(""), wxPoint(-1, -1), 
+		      wxSize(0, 0), wxTE_MULTILINE);
+  wxFileDialog * saveFileDialog = new wxFileDialog(this, _("Save File As _?"),\
+						       wxEmptyString, wxEmptyString, \
+						   _("*.*"), wxFD_SAVE | wxFD_OVERWRITE_PROMPT, \
+						       wxDefaultPosition);;
+  if (saveFileDialog->ShowModal() == wxID_OK){
+    wxString wxFileName = saveFileDialog->GetPath();
+    my_file = wx2std(wxFileName);
+  }
+
+  //  cout << "Give a name to this configuration file : " << endl;
+  //cin >> my_file;
+
+
+  //strcat(&complete_way[0], &my_file[0]);
+  // strcat(&complete_way[0], ".mapconf");
+  //strcat(&my_file[0], ".mapconf");
+  //  cout << complete_way.c_str() << endl;
   ofstream fichier(my_file.c_str(), ios::out);
   if (fichier){
-    cout <<  "ok ! " << endl;
-    fichier << "test" << endl;
+    for (int i = 0; i<128; i++)
+      if (pin_info[i].name!="")
+	fichier << pin_info[i].name << endl;
+      else 
+	fichier << "\0" << endl;
     fichier.close();
   }
 }
 
 void MyFrame::OnLoadFile( wxCommandEvent &event)
 {
-  //  cout << "chargement de configuration ! " << endl;
-  
   string my_file;
-  cout << "Name of the file to load ? " << endl;
-  cin >> my_file;
+  //string complete_way = "test/";
 
+  wxTextCtrl* tc = new wxTextCtrl(this, -1, wxT(""), wxPoint(-1, -1), 
+		      wxSize(0, 0), wxTE_MULTILINE);
+  
+  wxFileDialog * openFileDialog = new wxFileDialog(this);
+
+  if (openFileDialog->ShowModal() == wxID_OK){
+    wxString wxFileName = openFileDialog->GetPath();
+    tc->LoadFile(wxFileName);
+    my_file = wx2std(wxFileName);
+    
+  }
+
+
+  //  cout << "Name of the file to load ? " << endl;
+  // cin >> my_file;
+
+  //strcat(&complete_way[0], &my_file[0]);
+  //strcat(&complete_way[0], ".mapconf");
+  // strcat(&my_file[0], ".mapconf");
   ifstream fichier(my_file.c_str(), ios::in);
   if (fichier){
-    cout <<  "ok ! " << endl;
     string contenu;
-    getline(fichier, contenu);
-    cout << contenu << endl;
+    for (int i = 0; i < 128; i++){
+      getline(fichier, contenu);
+      pin_info[i].name = contenu;
+      names[i] =contenu;
+      if (pin_info[i].sig)
+	add_pin(i);
+    }
     fichier.close();
   } else {
-    cout << "this file doesn't exist, try again" << endl;
+    cout << "WARNING : This file doesn't exist, try again" << endl;
   }
 }
 
