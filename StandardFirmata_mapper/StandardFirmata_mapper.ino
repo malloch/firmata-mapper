@@ -279,7 +279,8 @@ void EEPROMWritingCallback(byte truc, int action)
              Serial.write(i);
              for (int j = 0; j < SIZE_MAX_NAME ; j++){
                 //if (EEPROM.read(i*SIZE_MAX_NAME +j)==0)
-                Serial.write(EEPROM.read(i*SIZE_MAX_NAME +j));
+                Serial.write( EEPROM.read(i*SIZE_MAX_NAME +j));
+                names[i][j] = EEPROM.read(i*SIZE_MAX_NAME +j);  
              }
      }
   }

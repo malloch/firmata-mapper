@@ -62,6 +62,8 @@ private:
 	void OnSize(wxSizeEvent &event);
 	void OnPort(wxCommandEvent &event);
 	void OnToggleButton(wxCommandEvent &event);
+	void OnEEPROM(wxCommandEvent &event);
+	void OnAddPin(wxCommandEvent &event);
 	void OnButton(wxCommandEvent &event);
 	void OnTextChanged(wxCommandEvent &event);
 	std::string wx2std(wxString s);
