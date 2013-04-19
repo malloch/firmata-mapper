@@ -49,8 +49,9 @@ private:
 	void init_data(void);
 	void new_size(void);
 	void add_item_to_grid(int row, int col, wxWindow *item);
-	void add_item_to_grid(int col, wxWindow *item);
+	//void add_item_to_grid(int col, wxWindow *item);
 	void add_pin(int pin);
+	void delete_pin(int pin);
 	wxString std2wx(std::string s);
 	void UpdateStatus(void);
 	void Parse(const uint8_t *buf, int len);

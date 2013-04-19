@@ -195,6 +195,7 @@ void MyFrame::init_data(void)
 {
 	grid->Clear(true);
 	grid->SetRows(0);
+	grid->SetCols(5);
 	for (int i=0; i < 128; i++) {
 		pin_info[i].mode = 255;
 		pin_info[i].analog_channel = 127;
@@ -220,9 +221,9 @@ void MyFrame::new_size(void)
 
 void MyFrame::add_item_to_grid(int row, int col, wxWindow *item)
 {
+  
 	int num_col = grid->GetCols();
 	int num_row = grid->GetRows();
-	cout << num_col << " " << num_row << endl;
 	if (num_row <= row) {
 	  //printf("adding rows, row=%d, num_row=%d\n", row, num_row);
 		grid->SetRows(row + 1);
@@ -252,48 +253,8 @@ void MyFrame::add_item_to_grid(int row, int col, wxWindow *item)
 	  grid->Insert(index, item);
 	}
 }
-/*
-void MyFrame::add_item_to_grid(int col, wxWindow *item)
-{
-  
-  int num_col = grid->GetCols();
-  int num_row = grid->GetRows();
-  int index = grid_count*num_col + col +1;
-  wxSizerItem *existing = grid->GetItem(index);
-  if (existing != NULL)
-    grid_count++;
-  cout << num_col << " " << num_row << endl;
-  if (num_row <= grid_count) {
-    //printf("adding rows, row=%d, num_row=%d\n", row, num_row);
-    grid->SetRows(grid_count + 1);
-    while (num_row < grid_count + 1) {
-      //printf("  add %d static text\n", num_col);
-      for (int i=0; i<num_col; i++) {
-        grid->Add(new wxStaticText(scroll, -1, _("        ")));
-      }
-      num_row++;
-    }
-  }
-  index = grid_count * num_col + col + 1;
-  //printf("index = %d: ", index);
-  existing = grid->GetItem(index);
-  if (existing != NULL) {
-    wxWindow *old = existing->GetWindow();
-    if (old) {
-      grid->Replace(old, item);
-      old->Destroy();
-      wxSizerItem *newitem = grid->GetItem(item);
-      if (newitem) {
-	newitem->SetFlag(wxALIGN_CENTER_VERTICAL);
-      }
-    }
-  } else {
-    printf("WARNING, using insert\n");
-    grid->Insert(index, item);
-  }
-}
-*/
 
+//to use in the version where all the pins are printed in the interface
 /*void MyFrame::add_pin(int pin)
 {
 	wxString *str = new wxString();
@@ -373,16 +334,60 @@ void MyFrame::add_pin(int pin)
 	if (pin_info[pin].mode == MODE_SERVO) modes->SetStringSelection(_("Servo"));
 	//printf("create choice, mode = %d (%s)\n", pin_info[pin].mode,
 	//	(const char *)modes->GetStringSelection());
-	
+
 	pin_info[pin].name = names[pin];
 	add_item_to_grid(/*pin,*/pin_info[pin].grid_row, 1, modes); 
 	modes->Validate();
+
+	wxButton *deleteButton = new wxButton(scroll, 7500+pin, _("delete"));
+	add_item_to_grid(pin_info[pin].grid_row, 3, deleteButton);
+
 	wxCommandEvent cmd = wxCommandEvent(wxEVT_COMMAND_CHOICE_SELECTED, 8000+pin);
     // temporarily change pin mode to force libmapper signal declaration in OnModeChange()
 	pin_info[pin].mode = 255;
 	OnModeChange(cmd);
+
 }
 
+void MyFrame::delete_pin(int pin)
+{
+     wxSizerItem *itemToDelete;
+     wxWindow *windowToDelete;
+     int index = pin_info[pin].grid_row *  grid->GetCols()+ 0 + 1;
+     //cout << index << endl;
+     for (int i =0; i<4; i++){
+       itemToDelete = grid->GetItem(index);
+       windowToDelete = itemToDelete->GetWindow();
+       grid->Replace(windowToDelete, new wxStaticText(scroll, -1, _("        ")));
+       windowToDelete->Destroy();
+       index++;
+       //cout << index << endl;
+     }
+     pin_info[pin].mode = 255;
+     pin_info[pin].value = 0;
+     pin_info[pin].sig = 0;
+     pin_info[pin].init = false;
+     pin_info[pin].name = "";
+     
+     for (int i = 0; i<128; i++)
+       if (pin_info[i].grid_row > pin_info[pin].grid_row){
+	 if (pin_info[i].grid_row == grid_count-1){
+	   index = pin_info[i].grid_row *  grid->GetCols()+ 0 + 1;
+	   for (int i =0; i<4; i++){
+	     itemToDelete = grid->GetItem(index);
+	     windowToDelete = itemToDelete->GetWindow();
+	     grid->Replace(windowToDelete, new wxStaticText(scroll, -1, _("        ")));
+	     windowToDelete->Destroy();
+	     index++;
+	   }
+	 }
+	 pin_info[i].grid_row--;
+	 add_pin(i);
+       }
+
+     pin_info[pin].grid_row = 0;
+     grid_count--;
+}
 
 wxString std2wx(std::string s){
   wxString wx;
@@ -436,27 +441,27 @@ void MyFrame::OnModeChange(wxCommandEvent &event)
   wxArrayString pinList;
   if (modeSelected == "Input")
     for (int i = 2; i< 20; i++){// TODO: depending on the Arduino
-      if (pin_info[i].supported_modes & (1<<MODE_INPUT)) 
+      if (pin_info[i].supported_modes & (1<<MODE_INPUT) && pin_info[i].sig==0) 
 	pinList.Add(wxString(wxString::Format(wxT("%d"), i)));
     } 
   else if (modeSelected == "Output")
     for (int i = 2; i< 20; i++){// TODO: depending on the Arduino 
-      if (pin_info[i].supported_modes & (1<<MODE_OUTPUT))
+      if (pin_info[i].supported_modes & (1<<MODE_OUTPUT) && pin_info[i].sig==0)
 	pinList.Add(wxString(wxString::Format(wxT("%d"), i)));
     }
   else if (modeSelected == "Analog")
     for (int i = 2; i< 20; i++){// TODO: depending on the Arduino
-      if (pin_info[i].supported_modes & (1<<MODE_ANALOG))
+      if (pin_info[i].supported_modes & (1<<MODE_ANALOG) && pin_info[i].sig==0 )
 	pinList.Add(wxString(wxString::Format(wxT("%d"), i)));
   }
   else if (modeSelected == "Servo")
     for (int i = 2; i< 20; i++){// TODO: depending on the Arduino
-      if (pin_info[i].supported_modes & (1<<MODE_SERVO))
+      if (pin_info[i].supported_modes & (1<<MODE_SERVO) && pin_info[i].sig==0)
 	pinList.Add(wxString(wxString::Format(wxT("%d"), i)));
     }
   else if (modeSelected == "PWM")
     for (int i = 2; i< 20; i++){// TODO: depending on the Arduino
-      if (pin_info[i].supported_modes & (1<<MODE_PWM))
+      if (pin_info[i].supported_modes & (1<<MODE_PWM) && pin_info[i].sig==0)
 	pinList.Add(wxString(wxString::Format(wxT("%d"), i)));
     }
   pinsChoice = new wxChoice(addPinFrame, -1, wxPoint(200, 110),  wxSize(-1, -1), pinList);
@@ -721,16 +726,19 @@ void MyFrame::OnEEPROM(wxCommandEvent &event)
 
 void MyFrame::OnAddPin(wxCommandEvent &event)
 {
+  //TODO: Warning if there is no pin available
   addPinFrame = new wxFrame(scroll, -1, _("add pin"), wxPoint(500,100), wxDefaultSize, wxFRAME_FLOAT_ON_PARENT);
 
   //name  
   wxStaticText *staticName = new wxStaticText(addPinFrame, -1, _("name : "), wxPoint(70, 50), wxSize(-1,-1), wxALIGN_CENTRE, _("staticText"));
-  nameTextCtrl = new wxTextCtrl(addPinFrame, -1, _(""), wxPoint(200,50), wxDefaultSize);
+  nameTextCtrl = new wxTextCtrl(addPinFrame, -1, _(""), wxPoint(200,50), wxDefaultSize, wxTE_RICH);
   nameTextCtrl->SetMaxLength(SIZE_MAX_NAME);
 
 
   //mode
- wxStaticText *staticMode = new wxStaticText(addPinFrame, -1, _("available Mode : "), wxPoint(70, 80), wxSize(-1,-1), wxALIGN_CENTRE, _("staticText"));    
+ wxStaticText *staticMode = new wxStaticText(addPinFrame, -1, _("available Mode : "), wxPoint(70, 80), wxSize(-1,-1), wxALIGN_CENTRE, _("staticText"));
+
+ //TODO: purpose a mode only if a pin is available    
   wxArrayString modeList;
   modeList.Add(_("Input"));
   modeList.Add(_("Output"));
@@ -776,42 +784,51 @@ void MyFrame::OnAddPin(wxCommandEvent &event)
     }
   pinsChoice = new wxChoice(addPinFrame, -1, wxPoint(200, 110),  wxSize(-1, -1), pinList);
 
-  wxButton *OKButton = new wxButton(addPinFrame, -1, _(" OK "), wxPoint(150, 200), wxDefaultSize);
+  wxButton *OKButton = new wxButton(addPinFrame, 7250, _(" OK "), wxPoint(150, 200), wxDefaultSize);
   addPinFrame->Show(true);
 }
 
 
 void MyFrame::OnButton(wxCommandEvent &event)
 {
-  isPinChosed = true;
-  addPinFrame->Show(false);
-
-  string sPin = wx2std(pinsChoice->GetStringSelection());
-  int pin = atoi(sPin.c_str());
-  string mode = wx2std(modesChoice->GetStringSelection());
-  if (mode =="Input")
-    pin_info[pin].mode = MODE_INPUT;
-  else if (mode == "Output")
-    pin_info[pin].mode = MODE_OUTPUT;
-  else if (mode == "Analog")
-    pin_info[pin].mode = MODE_ANALOG;
-  else if (mode == "Servo")
-    pin_info[pin].mode = MODE_SERVO;
-  else if (mode == "PWM")
-    pin_info[pin].mode = MODE_PWM;
-
-  pin_info[pin].name = wx2std(nameTextCtrl->GetValue());
-  names[pin] =  pin_info[pin].name;
-  
-  wxCommandEvent cmd = wxCommandEvent(0, 8500+pin);
-  OnTextChanged(cmd);
-  
-  add_pin(pin);
-
-  //TODO :
-  //récupérer les valeurs
-  //réinitialiser les valeurs
-  //add_pin
+  if (event.GetId()==7250){
+    if (wx2std(nameTextCtrl->GetValue())!=""){
+      isPinChosed = true;
+      addPinFrame->Show(false);
+      
+      string sPin = wx2std(pinsChoice->GetStringSelection());
+      int pin = atoi(sPin.c_str());
+      string mode = wx2std(modesChoice->GetStringSelection());
+      if (mode =="Input")
+      pin_info[pin].mode = MODE_INPUT;
+      else if (mode == "Output")
+	pin_info[pin].mode = MODE_OUTPUT;
+      else if (mode == "Analog")
+	pin_info[pin].mode = MODE_ANALOG;
+      else if (mode == "Servo")
+	pin_info[pin].mode = MODE_SERVO;
+      else if (mode == "PWM")
+	pin_info[pin].mode = MODE_PWM;
+      
+      pin_info[pin].name = wx2std(nameTextCtrl->GetValue());
+      names[pin] =  pin_info[pin].name;
+    
+      wxCommandEvent cmd = wxCommandEvent(0, 8500+pin);
+      OnTextChanged(cmd);
+      
+      add_pin(pin);
+    }else {
+      nameTextCtrl->SetDefaultStyle(wxTextAttr(wxNullColour, *wxRED));
+    }
+    
+  } else {
+    
+    int id = event.GetId();
+    int pin = id - 7500;
+    if (pin < 0 || pin > 127) return;
+    delete_pin(pin);
+   
+  }
 }
 
 void MyFrame::OnTextChanged(wxCommandEvent &event)
@@ -1314,6 +1331,9 @@ void MyFrame::OnSaveFile( wxCommandEvent &event)
 
 void MyFrame::OnLoadFile( wxCommandEvent &event)
 {
+  for (int i = 0 ; i< 128; i++)
+    if (pin_info[i].sig!=0)
+      delete_pin(i);
   string my_file;
   wxTextCtrl* tc = new wxTextCtrl(this, -1, wxT(""), wxPoint(-1, -1), 
 		      wxSize(0, 0), wxTE_MULTILINE);
@@ -1435,7 +1455,7 @@ MyApp::MyApp()
 
 bool MyApp::OnInit()
 {
-    MyFrame *frame = new MyFrame( NULL, -1, _("Firmata Mapper"), wxPoint(500, 50), wxSize(500,500) );
+    MyFrame *frame = new MyFrame( NULL, -1, _("Firmata Mapper"), wxPoint(500, 50), wxSize(600,500) );
     frame->Show( true );
     
     /*addPinFrame = new wxFrame(frame, NULL, _("add a pin"), wxPoint(500, 50), wxDefaultSize);
