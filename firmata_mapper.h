@@ -40,6 +40,7 @@ public:
         long style = wxDEFAULT_FRAME_STYLE );
 private:
 	wxFlexGridSizer *grid;
+	int grid_count;
 	wxScrolledWindow *scroll;
 	int parse_count;
 	int parse_command_len;
@@ -48,6 +49,7 @@ private:
 	void init_data(void);
 	void new_size(void);
 	void add_item_to_grid(int row, int col, wxWindow *item);
+	void add_item_to_grid(int col, wxWindow *item);
 	void add_pin(int pin);
 	wxString std2wx(std::string s);
 	void UpdateStatus(void);

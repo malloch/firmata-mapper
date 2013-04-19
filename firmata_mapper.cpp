@@ -53,6 +53,7 @@ typedef struct {
         mapper_signal sig;
         bool init;
         string name;
+        int grid_row;
 } pin_t;
 string names[128];
 pin_t pin_info[128];
@@ -173,12 +174,12 @@ MyFrame::MyFrame( wxWindow *parent, wxWindowID id, const wxString &title,
 	scroll = new wxScrolledWindow(this);
 	scroll->SetScrollRate(20, 20);
 	grid = new wxFlexGridSizer(0, 4, 4, 20); 
-	scroll->SetSizer(grid); 
+	scroll->SetSizer(grid);
+	grid_count = 2;
+	
 
 	init_data();
 	
-	
-	//cout << "valeur : " << VALEUR_TEST << endl;
 #if 0
 	// For testing only, add many controls so something
 	// appears in the window without requiring any
@@ -202,6 +203,7 @@ void MyFrame::init_data(void)
 		pin_info[i].sig = 0;
 		pin_info[i].init = false;
 		pin_info[i].name = "";
+		pin_info[i].grid_row = 0;
 	}
 	tx_count = rx_count = 0;
 	firmata_name = _("");
@@ -220,8 +222,8 @@ void MyFrame::add_item_to_grid(int row, int col, wxWindow *item)
 {
 	int num_col = grid->GetCols();
 	int num_row = grid->GetRows();
-
-	if (num_row < row + 1) {
+	cout << num_col << " " << num_row << endl;
+	if (num_row <= row) {
 	  //printf("adding rows, row=%d, num_row=%d\n", row, num_row);
 		grid->SetRows(row + 1);
 		while (num_row < row + 1) {
@@ -247,9 +249,50 @@ void MyFrame::add_item_to_grid(int row, int col, wxWindow *item)
 		}
 	} else {
 	  printf("WARNING, using insert\n");
-		grid->Insert(index, item);
+	  grid->Insert(index, item);
 	}
 }
+/*
+void MyFrame::add_item_to_grid(int col, wxWindow *item)
+{
+  
+  int num_col = grid->GetCols();
+  int num_row = grid->GetRows();
+  int index = grid_count*num_col + col +1;
+  wxSizerItem *existing = grid->GetItem(index);
+  if (existing != NULL)
+    grid_count++;
+  cout << num_col << " " << num_row << endl;
+  if (num_row <= grid_count) {
+    //printf("adding rows, row=%d, num_row=%d\n", row, num_row);
+    grid->SetRows(grid_count + 1);
+    while (num_row < grid_count + 1) {
+      //printf("  add %d static text\n", num_col);
+      for (int i=0; i<num_col; i++) {
+        grid->Add(new wxStaticText(scroll, -1, _("        ")));
+      }
+      num_row++;
+    }
+  }
+  index = grid_count * num_col + col + 1;
+  //printf("index = %d: ", index);
+  existing = grid->GetItem(index);
+  if (existing != NULL) {
+    wxWindow *old = existing->GetWindow();
+    if (old) {
+      grid->Replace(old, item);
+      old->Destroy();
+      wxSizerItem *newitem = grid->GetItem(item);
+      if (newitem) {
+	newitem->SetFlag(wxALIGN_CENTER_VERTICAL);
+      }
+    }
+  } else {
+    printf("WARNING, using insert\n");
+    grid->Insert(index, item);
+  }
+}
+*/
 
 /*void MyFrame::add_pin(int pin)
 {
@@ -304,11 +347,14 @@ void MyFrame::add_pin(int pin)
 	else
 	  *str = wxString::FromAscii(names[pin].c_str());
 	  
-	
+	if (pin_info[pin].grid_row == 0){
+	  pin_info[pin].grid_row = grid_count;
+	  grid_count++;
+	}
 	  wxStaticText *wxName = new wxStaticText(scroll, 15000+pin, *str , wxDefaultPosition, wxSize(150,-1), wxALIGN_CENTRE, _("staticText"));
 
 
-	add_item_to_grid(pin, 0, wxName);
+	  add_item_to_grid(/*pin, */pin_info[pin].grid_row, 0, wxName);
 	
 
 	wxArrayString list;
@@ -329,13 +375,12 @@ void MyFrame::add_pin(int pin)
 	//	(const char *)modes->GetStringSelection());
 	
 	pin_info[pin].name = names[pin];
-	add_item_to_grid(pin, 1, modes); 
+	add_item_to_grid(/*pin,*/pin_info[pin].grid_row, 1, modes); 
 	modes->Validate();
 	wxCommandEvent cmd = wxCommandEvent(wxEVT_COMMAND_CHOICE_SELECTED, 8000+pin);
     // temporarily change pin mode to force libmapper signal declaration in OnModeChange()
 	pin_info[pin].mode = 255;
 	OnModeChange(cmd);
-	cout << "appelle Onmodechanged" << endl;
 }
 
 
@@ -417,7 +462,6 @@ void MyFrame::OnModeChange(wxCommandEvent &event)
   pinsChoice = new wxChoice(addPinFrame, -1, wxPoint(200, 110),  wxSize(-1, -1), pinList);
   }
   else{     
-    cout << "entre dans onmodechange" << endl;
   int id = event.GetId();
   int pin = id - 8000;
   if (pin < 0 || pin > 127) return;
@@ -505,7 +549,6 @@ void MyFrame::OnModeChange(wxCommandEvent &event)
       pin_info[pin].sig = mdev_add_input(dev, signame, 1, 'i', unitsig, &min, &max,
 					 MapperSignalHandler, (void *)pin);
     default:
-      cout << "foirage de création de signal" << endl;
       break;
     }
     //cout << "onModeChanged :" << signame << " " << pin_info[pin].name << endl;
@@ -527,14 +570,14 @@ void MyFrame::OnModeChange(wxCommandEvent &event)
     wxToggleButton *button = new  wxToggleButton(scroll, 7000+pin, 
 						 pin_info[pin].value ? _("High") : _("Low"));
     button->SetValue(pin_info[pin].value);
-    add_item_to_grid(pin, 2, button);
+    add_item_to_grid(/*pin,*/pin_info[pin].grid_row, 2, button);
   } else if (mode == MODE_INPUT) {
     wxStaticText *text = new wxStaticText(scroll, 5000+pin,
 					  pin_info[pin].value ? _("High") : _("Low"));
     wxSize size = wxSize(128, -1);
     text->SetMinSize(size);
     text->SetWindowStyle(wxALIGN_CENTRE);
-    add_item_to_grid(pin, 2, text);
+    add_item_to_grid(/*pin,*/pin_info[pin].grid_row, 2, text);
     
   } else if (mode == MODE_ANALOG) {
     wxString val;
@@ -543,14 +586,14 @@ void MyFrame::OnModeChange(wxCommandEvent &event)
     wxSize size = wxSize(128, -1);
     text->SetMinSize(size);
     text->SetWindowStyle(wxALIGN_CENTRE);
-    add_item_to_grid(pin, 2, text);
+    add_item_to_grid(/*pin,*/pin_info[pin].grid_row, 2, text);
   } else if (mode == MODE_PWM || mode == MODE_SERVO) {
     int maxval = (mode == MODE_PWM) ? 255 : 180;
     wxSlider *slider = new wxSlider(scroll, 6000+pin,
 				    pin_info[pin].value, 0, maxval);
     wxSize size = wxSize(128, -1);
     slider->SetMinSize(size);
-    add_item_to_grid(pin, 2, slider);
+    add_item_to_grid(/*pin,*/pin_info[pin].grid_row, 2, slider);
   }
   new_size();
   }
@@ -700,10 +743,7 @@ void MyFrame::OnAddPin(wxCommandEvent &event)
   modesChoice->Validate();
   wxCommandEvent cmd = wxCommandEvent(wxEVT_COMMAND_CHOICE_SELECTED, MODE_TEMP_CHANGE);
   modesChoice->Command(cmd);
-  OnModeChange(cmd);
-
-  
-  
+  OnModeChange(cmd);  
   string modeSelected =  wx2std(modesChoice->GetStringSelection());
 
   //pin
@@ -735,30 +775,14 @@ void MyFrame::OnAddPin(wxCommandEvent &event)
 	pinList.Add(wxString(wxString::Format(wxT("%d"), i)));
     }
   pinsChoice = new wxChoice(addPinFrame, -1, wxPoint(200, 110),  wxSize(-1, -1), pinList);
-  
 
-    
   wxButton *OKButton = new wxButton(addPinFrame, -1, _(" OK "), wxPoint(150, 200), wxDefaultSize);
-
-  //  wxDialog *addPinFrame = new wxDialog(scroll, -1, _("add pin"), wxPoint(50,200), wxDefaultSize);
   addPinFrame->Show(true);
-
-  //  wxButton *OKButton = new wxButton(addPinFrame, 6952, _(" OK "), wxPoint(50, 200), wxDefaultSize);
-
-  /*while(!isPinChosed){
-    cout << "patate" << endl;
-    sleep(100);
-    }
-  addPinFrame->Show(false);
-  isPinChosed = false;*/
-  int currentPin = pinsChoice->GetCurrentSelection();
-  //cout << currentPin << endl;
 }
 
 
 void MyFrame::OnButton(wxCommandEvent &event)
 {
-  cout << "clic" << endl;
   isPinChosed = true;
   addPinFrame->Show(false);
 
@@ -792,10 +816,8 @@ void MyFrame::OnButton(wxCommandEvent &event)
 
 void MyFrame::OnTextChanged(wxCommandEvent &event)
 {
-  cout << "passse ontextchanged" << endl;
   int id = event.GetId();
   int pin = id - 8500;
-  cout << "pin : " << pin << endl;
   // int pin = id -15000;
   if (pin < 0 || pin > 127) return;
   /*
@@ -1016,7 +1038,6 @@ void MyFrame::OnPort(wxCommandEvent &event)
 
 void MyFrame::OnIdle(wxIdleEvent &event)
 {
-  //  cout << "passe ici" << endl;
     uint8_t buf[1024];
     int r;
     if (dev)
@@ -1074,17 +1095,12 @@ void MyFrame::Parse(const uint8_t *buf, int len)
 			parse_command_len = 1;
 			parse_count = 0;
 		} else if (*p == 0x71) {
-		  //cout << "charge les noms ! " << endl;
 		  parse_command_len = SIZE_MAX_NAME+2;
 		  parse_count = 0;
 		}
-		if (parse_count < (int)sizeof(parse_buf)) {
+		if (parse_count < (int)sizeof(parse_buf)) 
 			parse_buf[parse_count++] = *p;
-			//if (*buf==0x71)
-			  //cout << parse_count << " " << *p << endl;
-		}
 		if (parse_count == parse_command_len) {
-		  //cout << "domessage" << endl << endl;
 			DoMessage();
 			parse_count = parse_command_len = 0;
 		}
@@ -1102,7 +1118,6 @@ void MyFrame::DoMessage(void)
 	//printf("message, %d bytes, %02X\n", parse_count, parse_buf[0]);
 
 	if (cmd == 0xE0 && parse_count == 3) {
-	  // cout << "passe dans le 1" << endl;
 		int analog_ch = (parse_buf[0] & 0x0F);
 		int analog_val = parse_buf[1] | (parse_buf[2] << 7);
 		for (int pin=0; pin<128; pin++) {
@@ -1277,35 +1292,20 @@ void MyFrame::DoMessage(void)
 void MyFrame::OnSaveFile( wxCommandEvent &event)
 {
   string my_file;
-  //string complete_way; // TODO: put the name betwin "test/" and ".mapconf" (doesn't work for the moment)
-  //complete_way = "test/";
-
-  /*wxTextCtrl* tc = new wxTextCtrl(this, -1, wxT(""), wxPoint(-1, -1), 
-    wxSize(0, 0), wxTE_MULTILINE);*/
   wxFileDialog * saveFileDialog = new wxFileDialog(this, _("Save File As _?"),\
-						       wxEmptyString, wxEmptyString, \
+ 						       wxEmptyString, wxEmptyString, \
 						   _("*.mapconf"), wxFD_SAVE | wxFD_OVERWRITE_PROMPT, \
-						       wxDefaultPosition);;
+						       wxDefaultPosition);
   if (saveFileDialog->ShowModal() == wxID_OK){
     wxString wxFileName = saveFileDialog->GetPath();
     my_file = wx2std(wxFileName);
   }
-
-  //  cout << "Give a name to this configuration file : " << endl;
-  //cin >> my_file;
-
-
-  //strcat(&complete_way[0], &my_file[0]);
-  // strcat(&complete_way[0], ".mapconf");
   strcat(&my_file[0], ".mapconf");
-  //  cout << complete_way.c_str() << endl;
   ofstream fichier(my_file.c_str(), ios::out);
   if (fichier){
     for (int i = 0; i<128; i++)
-      if (pin_info[i].name!=""){
-	cout << "name saved : " << pin_info[i].name << endl;
- 	fichier << pin_info[i].name << endl;
-      }
+      if (pin_info[i].name!="")
+	fichier << pin_info[i].name << endl;
       else 
 	fichier << "\0" << endl;
     fichier.close();
@@ -1315,8 +1315,6 @@ void MyFrame::OnSaveFile( wxCommandEvent &event)
 void MyFrame::OnLoadFile( wxCommandEvent &event)
 {
   string my_file;
-  //string complete_way = "test/";
-
   wxTextCtrl* tc = new wxTextCtrl(this, -1, wxT(""), wxPoint(-1, -1), 
 		      wxSize(0, 0), wxTE_MULTILINE);
   
@@ -1328,14 +1326,6 @@ void MyFrame::OnLoadFile( wxCommandEvent &event)
     my_file = wx2std(wxFileName);
     
   }
-
-
-  //  cout << "Name of the file to load ? " << endl;
-  // cin >> my_file;
-
-  //strcat(&complete_way[0], &my_file[0]);
-  //strcat(&complete_way[0], ".mapconf");
-  // strcat(&my_file[0], ".mapconf");
   ifstream fichier(my_file.c_str(), ios::in);
   if (fichier){
     string contenu;
@@ -1345,6 +1335,10 @@ void MyFrame::OnLoadFile( wxCommandEvent &event)
 	pin_info[i].name = contenu;
 	names[i] =contenu;
 	add_pin(i);
+	  
+	wxCommandEvent cmd = wxCommandEvent(0, 8500+i);
+	OnTextChanged(cmd);
+
       } else {
 	pin_info[i].name = "";
 	names[i] ="";
@@ -1355,6 +1349,7 @@ void MyFrame::OnLoadFile( wxCommandEvent &event)
   } else {
     cout << "WARNING : This file doesn't exist, try again" << endl;
   }
+
 }
 
 void MyFrame::OnAbout( wxCommandEvent &event )
@@ -1440,7 +1435,7 @@ MyApp::MyApp()
 
 bool MyApp::OnInit()
 {
-    MyFrame *frame = new MyFrame( NULL, -1, _("Firmata Mapper"), wxPoint(500, 50), wxSize(500,800) );
+    MyFrame *frame = new MyFrame( NULL, -1, _("Firmata Mapper"), wxPoint(500, 50), wxSize(500,500) );
     frame->Show( true );
     
     /*addPinFrame = new wxFrame(frame, NULL, _("add a pin"), wxPoint(500, 50), wxDefaultSize);
