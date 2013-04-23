@@ -63,8 +63,6 @@ int samplingInterval = 19;          // how often to run the main loop (in ms)
 /*to stock the name of the signals*/
 byte names[TOTAL_PINS][SIZE_MAX_NAME];
 byte units[TOTAL_PINS][SIZE_MAX_UNIT];
-byte modes[TOTAL_PINS];
-byte valuesMax[TOTAL_PINS];
 
 Servo servos[MAX_SERVOS];
 /*==============================================================================
@@ -263,10 +261,11 @@ void reportDigitalCallback(byte port, int value)
 void EEPROMWritingCallback(byte truc, int action)
 {
   if (action == 0){
-      for (int i=0; i < TOTAL_PINS; i++)
-          //if (names[i][0]!=0)
+      for (int i=0; i < TOTAL_PINS; i++){
               for (int j = 0; j < SIZE_MAX_NAME; j++)
-                     EEPROM.write(i*SIZE_MAX_NAME + j, names[i][j]); //TODO : où stocker exactement  
+                     EEPROM.write(i*(SIZE_MAX_NAME+1/*for mode*/) + j, names[i][j]); //TODO : où stocker exactement  
+              EEPROM.write(i*(SIZE_MAX_NAME+1/*for mode*/) + SIZE_MAX_NAME, pinConfig[i]);
+      }
   } else if (action == 1){
       for (int i=0; i< EEPROM_SIZE; i++)
           EEPROM.write(i,0);
@@ -279,10 +278,11 @@ void EEPROMWritingCallback(byte truc, int action)
              Serial.write(i);
              for (int j = 0; j < SIZE_MAX_NAME ; j++){
                 //if (EEPROM.read(i*SIZE_MAX_NAME +j)==0)
-                Serial.write( EEPROM.read(i*SIZE_MAX_NAME +j));
-                names[i][j] = EEPROM.read(i*SIZE_MAX_NAME +j);  
+                Serial.write( EEPROM.read(i*(SIZE_MAX_NAME+1) +j));
+                names[i][j] = EEPROM.read(i*(SIZE_MAX_NAME+1) +j);  
              }
-     }
+             Serial.write( EEPROM.read(i*(SIZE_MAX_NAME+1) + SIZE_MAX_NAME));    
+           }
   }
 }
 
