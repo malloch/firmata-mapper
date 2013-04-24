@@ -42,6 +42,7 @@ using namespace std;
 //------------------------------------------------------------------------------
 
 Serial port;
+bool isProgramLoaded;
 mapper_device dev = 0;
 mapper_timetag_t tt;
 int needs_update = 0;
@@ -210,6 +211,7 @@ void MyFrame::init_data(void)
 	tx_count = rx_count = 0;
 	firmata_name = _("");
         warning = new wxStaticText(addPinFrame, -1, _("") );
+	isProgramLoaded = false;
 	UpdateStatus();
 	new_size();
 }
@@ -314,7 +316,7 @@ void MyFrame::add_pin(int pin)
 	  pin_info[pin].grid_row = grid_count;
 	  grid_count++;
 	}
-	wxStaticText *wxName = new wxStaticText(scroll, 15000+pin, *str , wxDefaultPosition, wxSize(150,-1), wxALIGN_CENTRE, _("staticText"));
+	wxStaticText *wxName = new wxStaticText(scroll, 15000+pin, *str , wxDefaultPosition, wxSize(-1,-1), wxALIGN_CENTER, _("staticText"));
 	add_item_to_grid(/*pin, */pin_info[pin].grid_row, 0, wxName);
 	
 	/*
@@ -427,11 +429,11 @@ wxString std2wx(std::string s){
 void MyFrame::UpdateStatus(void)
 {
 	wxString status;
-	if (port.Is_open()) {
-	  status.Printf(port.get_name() + _("    ") +
-			firmata_name + _("    Tx:%u Rx:%u"),
-			tx_count, rx_count);
-	} else {
+	if (port.Is_open() && isProgramLoaded) {
+	  status.Printf(port.get_name() + _("    Tx:%u Rx:%u     ") + firmata_name, tx_count, rx_count );
+	} else if (port.Is_open() && !isProgramLoaded){
+	  status = _("Firmata program not loaded on the arduino");
+	}else {
 	  status = _("Please choose serial port");
 	}
 	SetStatusText(status);
@@ -1146,6 +1148,8 @@ void MyFrame::Parse(const uint8_t *buf, int len)
 	for (p = buf; p < end; p++) {
 		uint8_t msn = *p & 0xF0;
 		if (msn == 0xE0 || msn == 0x90 || *p == 0xF9) {
+		  isProgramLoaded = true;
+		  UpdateStatus();
 			parse_command_len = 3;
 			parse_count = 0;
 		} else if (msn == 0xC0 || msn == 0xD0) {
@@ -1515,7 +1519,7 @@ MyApp::MyApp()
 
 bool MyApp::OnInit()
 {
-    MyFrame *frame = new MyFrame( NULL, -1, _("Firmata Mapper"), wxPoint(500, 50), wxSize(600,500) );
+    MyFrame *frame = new MyFrame( NULL, -1, _("Firmata Mapper"), wxPoint(500, 50), wxSize(450,500) );
     frame->Show( true );
     
     /*addPinFrame = new wxFrame(frame, NULL, _("add a pin"), wxPoint(500, 50), wxDefaultSize);
