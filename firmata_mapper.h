@@ -57,6 +57,7 @@ private:
 	void Parse(const uint8_t *buf, int len);
 	void DoMessage(void);
 	void OnSaveFile(wxCommandEvent &event);
+	int searchPinByCreatedOrder(int grid_row);
 	void OnLoadFile(wxCommandEvent &event);
 	void OnAbout(wxCommandEvent &event);
 	void OnQuit(wxCommandEvent &event);

@@ -20,7 +20,7 @@ SDK = /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Devel
 CXX = g++
 STRIP = strip
 WXCONFIG = /opt/local/bin/wx-config
-CPPFLAGS =  -O2 -Wall -Wno-strict-aliasing -isysroot $(SDK) `$(WXCONFIG) --cppflags` -D$(OS) -arch i386
+CPPFLAGS =  -O2 -Wall -Wno-strict-aliasing -isysroot $(SDK) `$(WXCONFIG) --cppflags` -D$(OS) -x86_84
 CPPFLAGS += $(shell pkg-config --cflags libmapper-0)
 LIBS = `$(WXCONFIG) --libs` $(shell pkg-config --libs libmapper-0)
 else ifeq ($(OS), WINDOWS)

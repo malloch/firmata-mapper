@@ -340,8 +340,6 @@ void MyFrame::delete_pin(int pin)
        }
      pin_info[pin].grid_row = 0;
      grid_count--;
-
-     //TODO: send a message to the Arduino to delete the name
 }
 
 //convert a string from std to wx
@@ -788,9 +786,6 @@ void MyFrame::OnButton(wxCommandEvent &event)
   }
 }
 //To send names to the firmware
-//TODO: transform the event function in a simple function
-
-//void MyFrame::OnTextChanged(wxCommandEvent &event)
 void MyFrame::sendName(int pin)
 {
   //int id = event.GetId();
@@ -836,7 +831,6 @@ void MyFrame::sendName(int pin)
 	buf[i+2] = (uint8_t)signame[i];	
     port.Write(buf, SIZE_MAX_NAME+2);
     tx_count += SIZE_MAX_NAME+2; 
-    // TODO : change only the name --> add a function in Libmapper (not required for the moment)
 }
 
 //convert a string from wx to std
@@ -1202,12 +1196,24 @@ void MyFrame::OnSaveFile( wxCommandEvent&event)
   strcat(&my_file[0], ".mapconf");
   ofstream file(my_file.c_str(), ios::out);
   if (file){ 
-    for (int i = 0; i<128; i++)//TODO: save in the order on the extern file
-      if (pin_info[i].name!="")
-	file << i << " " << pin_info[i].name << " " << (int)pin_info[i].mode << endl;
+    for (int i = 2; i <128; i++){
+      int pinTemp = searchPinByCreatedOrder(i);
+      if ( pinTemp != -1)
+	file << pinTemp << " " << pin_info[pinTemp].name << " " << (int)pin_info[pinTemp].mode << endl;
+      else
+	continue;
+    }
     file << "-1 -1 -1" << endl;
     file.close();
   }
+}
+//Return the pin number associated with the place on the grid
+int MyFrame::searchPinByCreatedOrder(int grid_row){
+  for (int i = 0; i< 128; i++){
+    if (pin_info[i].grid_row == grid_row)
+      return i;
+  }
+  return -1;
 }
 //load a configuration from an extern file
 void MyFrame::OnLoadFile( wxCommandEvent &event)
@@ -1343,7 +1349,7 @@ MyApp::MyApp()
 
 bool MyApp::OnInit()
 {
-    MyFrame *frame = new MyFrame( NULL, -1, _("Firmata Mapper"), wxPoint(500, 50), wxSize(550,500) );
+    MyFrame *frame = new MyFrame( NULL, -1, _("Firmata Mapper"), wxPoint(500, 50), wxSize(550,400) );
     frame->Show( true );
     
     /*addPinFrame = new wxFrame(frame, NULL, _("add a pin"), wxPoint(500, 50), wxDefaultSize);
