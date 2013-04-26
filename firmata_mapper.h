@@ -68,7 +68,8 @@ private:
 	void OnEEPROM(wxCommandEvent &event);
 	void OnAddPin(wxCommandEvent &event);
 	void OnButton(wxCommandEvent &event);
-	void OnTextChanged(wxCommandEvent &event);
+	//void OnTextChanged(wxCommandEvent &event);
+	void sendName(int pin);
 	std::string wx2std(wxString s);
 	void OnSliderDrag(wxScrollEvent &event);
 	void OnModeChange(wxCommandEvent &event);

@@ -28,8 +28,6 @@
 #include "serial.h"
 #include "mapper/mapper.h"
 #include <iostream>
- //#include <sstream>
-//#include <iomanip>
 #include <fstream>
 #include <string>
 
@@ -47,15 +45,15 @@ mapper_device dev = 0;
 mapper_timetag_t tt;
 int needs_update = 0;
 typedef struct {
-	uint8_t mode;
-	uint8_t analog_channel;
-	uint64_t supported_modes;
-	uint32_t value;
-        mapper_signal sig;
-        bool init;
-        string name;
-        string unit;
-        int grid_row;
+  uint8_t mode;
+  uint8_t analog_channel;
+  uint64_t supported_modes;
+  uint32_t value;
+  mapper_signal sig;
+  bool init;//TODO: now useless
+  string name;
+  string unit;
+  int grid_row;//place of the signal in the interface grid
 } pin_t;
 string names[128];
 pin_t pin_info[128];
@@ -67,7 +65,7 @@ wxMenu *signal_menu;
 wxMenu *EEPROM_menu;
 bool isPinChosed = false;
   
-wxFrame *addPinFrame;
+wxFrame *addPinFrame; //TODO: better do it by checking the window ID
 wxTextCtrl *nameTextCtrl;
 wxChoice *modesChoice;
 wxChoice *pinsChoice;
@@ -96,7 +94,7 @@ wxStaticText *warning;
 #define SIZE_MAX_NAME           12
 #define SIZE_MAX_UNIT           5
 
-#define SAVE_FILE_ID            6323
+#define SAVE_FILE_ID            6323//TODO: change all the ID of the program to have a better coherence
 #define LOAD_FILE_ID            6324
 #define ADD_PIN_ID              6325
 #define WRITE_EEPROM_ID         6326
@@ -119,10 +117,8 @@ BEGIN_EVENT_TABLE(MyFrame,wxFrame)
         EVT_CHOICE(MODE_TEMP_CHANGE, MyFrame::OnModeChange)
         EVT_IDLE(MyFrame::OnIdle)
         EVT_TOGGLEBUTTON(-1, MyFrame::OnToggleButton)
-//EVT_BUTTON(-1, MyFrame::OnEEPROM)
         EVT_BUTTON(-1, MyFrame::OnButton)
-        EVT_TEXT_ENTER(-1, MyFrame::OnTextChanged)
-//EVT_CHAR(MyFrame::OnKey)//TAB (doesn't work)
+//EVT_TEXT_ENTER(-1, MyFrame::OnTextChanged)
 	EVT_SCROLL_THUMBTRACK(MyFrame::OnSliderDrag)
 	EVT_MENU_OPEN(MyMenu::OnShowPortList)
 	EVT_MENU_HIGHLIGHT(-1, MyMenu::OnHighlight)
@@ -163,10 +159,10 @@ MyFrame::MyFrame( wxWindow *parent, wxWindowID id, const wxString &title,
 	menu = new wxMenu;
 	menu->Append( WRITE_EEPROM_ID, _("Write on EEPROM"));
 	menu->Enable( WRITE_EEPROM_ID, false);
-	menu->Append( CLEAR_EEPROM_ID, _("Clear EEPROM"));
-	menu->Enable( CLEAR_EEPROM_ID, false);
 	menu->Append( LOAD_EEPROM_ID, _("Load EEPROM"));
 	menu->Enable( LOAD_EEPROM_ID, false);
+	//menu->Append( CLEAR_EEPROM_ID, _("Clear EEPROM"));
+	//menu->Enable( CLEAR_EEPROM_ID, false);
 	menubar->Append(menu, _("EEPROM"));
 	EEPROM_menu = menu;
 	
@@ -248,9 +244,8 @@ void MyFrame::add_item_to_grid(int row, int col, wxWindow *item)
 			grid->Replace(old, item);
 			old->Destroy();
 			wxSizerItem *newitem = grid->GetItem(item);
-			if (newitem) {
+			if (newitem) 
 				newitem->SetFlag(wxALIGN_CENTER_VERTICAL);
-			}
 		}
 	} else {
 	  printf("WARNING, using insert\n");
@@ -258,56 +253,10 @@ void MyFrame::add_item_to_grid(int row, int col, wxWindow *item)
 	}
 }
 
-//to use in the version where all the pins are printed in the interface
-/*void MyFrame::add_pin(int pin)
-{
-	wxString *str = new wxString();
-	if ((names[pin]==""))
-	  str->Printf(_("Pin %d"), pin);
-	else
-	  *str = wxString::FromAscii(names[pin].c_str());
-	  
-	wxTextCtrl *wxName = new wxTextCtrl(scroll, 15000+pin, *str , wxDefaultPosition, wxSize(150,-1), wxTE_PROCESS_ENTER|wxTE_PROCESS_TAB, wxDefaultValidator, wxTextCtrlNameStr); 
-	//wxName->Connect(15000+pin, wxEVT_CHAR, (wxObjectEventFunction)&MyFrame::OnKey,NULL,this);
-	
-	wxName->SetMaxLength(SIZE_MAX_NAME);
-
-
-	add_item_to_grid(pin, 0, wxName);
-	
-
-	wxArrayString list;
-	if (pin_info[pin].supported_modes & (1<<MODE_INPUT)) list.Add(_("Input"));
-	if (pin_info[pin].supported_modes & (1<<MODE_OUTPUT)) list.Add(_("Output"));
-	if (pin_info[pin].supported_modes & (1<<MODE_ANALOG)) list.Add(_("Analog"));
-	if (pin_info[pin].supported_modes & (1<<MODE_PWM)) list.Add(_("PWM"));
-	if (pin_info[pin].supported_modes & (1<<MODE_SERVO)) list.Add(_("Servo"));
-	wxPoint pos = wxPoint(0, 0);
-	wxSize size = wxSize(-1, -1);
-	wxChoice *modes = new wxChoice(scroll, 8000+pin, pos, size, list);
-	
-	cout << pin << " : " << (int)pin_info[pin].mode << endl;
-	if (pin_info[pin].mode == MODE_INPUT) modes->SetStringSelection(_("Input"));
-	if (pin_info[pin].mode == MODE_OUTPUT) modes->SetStringSelection(_("Output"));
-	if (pin_info[pin].mode == MODE_ANALOG) modes->SetStringSelection(_("Analog"));
-	if (pin_info[pin].mode == MODE_PWM) modes->SetStringSelection(_("PWM"));
-	if (pin_info[pin].mode == MODE_SERVO) modes->SetStringSelection(_("Servo"));
-	//printf("create choice, mode = %d (%s)\n", pin_info[pin].mode,
-	//	(const char *)modes->GetStringSelection());
-	
-	pin_info[pin].name = names[pin];
-	add_item_to_grid(pin, 1, modes); 
-	modes->Validate();
-	wxCommandEvent cmd = wxCommandEvent(wxEVT_COMMAND_CHOICE_SELECTED, 8000+pin);
-    // temporarily change pin mode to force libmapper signal declaration in OnModeChange()
-	pin_info[pin].mode = 255;
-	OnModeChange(cmd);
-	}
-*/
 void MyFrame::add_pin(int pin)
 {
 	wxString *str = new wxString();
-	if ((names[pin]==""))
+	if ((names[pin]==""))//not usefull anymore
 	  str->Printf(_("Pin %d"), pin);
 	else
 	  *str = wxString::FromAscii(names[pin].c_str());
@@ -316,54 +265,38 @@ void MyFrame::add_pin(int pin)
 	  pin_info[pin].grid_row = grid_count;
 	  grid_count++;
 	}
+	
+	//name
 	wxStaticText *wxName = new wxStaticText(scroll, 15000+pin, *str , wxDefaultPosition, wxSize(-1,-1), wxALIGN_CENTER, _("staticText"));
 	add_item_to_grid(/*pin, */pin_info[pin].grid_row, 0, wxName);
 	
-	/*
-	wxArrayString list;
-	if (pin_info[pin].supported_modes & (1<<MODE_INPUT)) list.Add(_("Input"));
-	if (pin_info[pin].supported_modes & (1<<MODE_OUTPUT)) list.Add(_("Output"));
-	if (pin_info[pin].supported_modes & (1<<MODE_ANALOG)) list.Add(_("Analog"));
-	if (pin_info[pin].supported_modes & (1<<MODE_PWM)) list.Add(_("PWM"));
-	if (pin_info[pin].supported_modes & (1<<MODE_SERVO)) list.Add(_("Servo"));
-	wxPoint pos = wxPoint(0, 0);
-	wxSize size = wxSize(-1, -1);
-	wxChoice *modes = new wxChoice(scroll, 8000+pin, pos, size, list);
-	if (pin_info[pin].mode == MODE_INPUT) modes->SetStringSelection(_("Input"));
-	if (pin_info[pin].mode == MODE_OUTPUT) modes->SetStringSelection(_("Output"));
-	if (pin_info[pin].mode == MODE_ANALOG) modes->SetStringSelection(_("Analog"));
-	if (pin_info[pin].mode == MODE_PWM) modes->SetStringSelection(_("PWM"));
-	if (pin_info[pin].mode == MODE_SERVO) modes->SetStringSelection(_("Servo"));
-	//printf("create choice, mode = %d (%s)\n", pin_info[pin].mode,
-	//	(const char *)modes->GetStringSelection());
-	*/
-	
-	  wxStaticText *modes;
-	  if (pin_info[pin].mode == MODE_INPUT) 	  
-	    modes = new wxStaticText(scroll, -1, _("Input") , wxDefaultPosition, wxSize(-1,-1));
-	  if (pin_info[pin].mode == MODE_OUTPUT) 
-	    modes = new wxStaticText(scroll, -1, _("Output") , wxDefaultPosition, wxSize(-1,-1));
-	  if (pin_info[pin].mode == MODE_ANALOG)
-	    modes = new wxStaticText(scroll, -1, _("Analog") , wxDefaultPosition, wxSize(-1,-1));
-	  if (pin_info[pin].mode == MODE_PWM) 
-	    modes = new wxStaticText(scroll, -1, _("PWM") , wxDefaultPosition, wxSize(-1,-1));
-	  if (pin_info[pin].mode == MODE_SERVO) 
-	    modes = new wxStaticText(scroll, -1, _("Servo") , wxDefaultPosition, wxSize(-1,-1));
+	//mode 
+	wxStaticText *modes;
+	if (pin_info[pin].mode == MODE_INPUT) 	  
+	  modes = new wxStaticText(scroll, -1, _("Input") , wxDefaultPosition, wxSize(-1,-1));
+	if (pin_info[pin].mode == MODE_OUTPUT) 
+	  modes = new wxStaticText(scroll, -1, _("Output") , wxDefaultPosition, wxSize(-1,-1));
+	if (pin_info[pin].mode == MODE_ANALOG)
+	  modes = new wxStaticText(scroll, -1, _("Analog") , wxDefaultPosition, wxSize(-1,-1));
+	if (pin_info[pin].mode == MODE_PWM) 
+	  modes = new wxStaticText(scroll, -1, _("PWM") , wxDefaultPosition, wxSize(-1,-1));
+	if (pin_info[pin].mode == MODE_SERVO) 
+	  modes = new wxStaticText(scroll, -1, _("Servo") , wxDefaultPosition, wxSize(-1,-1));
 		
 	pin_info[pin].name = names[pin];
 	add_item_to_grid(/*pin,*/pin_info[pin].grid_row, 1, modes); 
-	// modes->Validate();
 	
+	//delete button
 	wxButton *deleteButton = new wxButton(scroll, 7500+pin, _("delete"));
 	add_item_to_grid(pin_info[pin].grid_row, 3, deleteButton);
 
+	//TODO: change it with a normal function and rebuild all (no mean to call this here, we can do that in onAddPin
 	wxCommandEvent cmd = wxCommandEvent(wxEVT_COMMAND_CHOICE_SELECTED, 8000+pin);
-    // temporarily change pin mode to force libmapper signal declaration in OnModeChange()
-	//pin_info[pin].mode = 255;
 	OnModeChange(cmd);
 
 }
 
+//delete the pin from the interface and destroy its signal
 void MyFrame::delete_pin(int pin)
 {
      wxSizerItem *itemToDelete;
@@ -376,19 +309,20 @@ void MyFrame::delete_pin(int pin)
        windowToDelete->Destroy();
        index++;
      }
-
      mapper_db_signal props = msig_properties(pin_info[pin].sig);
       if (props->is_output)
 	mdev_remove_output(dev, pin_info[pin].sig);
       else 
 	mdev_remove_input(dev, pin_info[pin].sig);
 
+      //reinit the pin
      pin_info[pin].mode = 255;
      pin_info[pin].value = 0;
      pin_info[pin].sig = 0;
      pin_info[pin].init = false;
      pin_info[pin].name = "";
      
+     //put back up the signals wich was under the one which has been deleted
      for (int i = 0; i<128; i++)
        if (pin_info[i].grid_row > pin_info[pin].grid_row){
 	 if (pin_info[i].grid_row == grid_count-1){
@@ -404,11 +338,13 @@ void MyFrame::delete_pin(int pin)
 	 pin_info[i].grid_row--;
 	 add_pin(i);
        }
-    
      pin_info[pin].grid_row = 0;
      grid_count--;
+
+     //TODO: send a message to the Arduino to delete the name
 }
 
+//convert a string from std to wx
 wxString std2wx(std::string s){
   wxString wx;
   const char* my_string=s.c_str();
@@ -421,81 +357,70 @@ wxString std2wx(std::string s){
  return wx;
 } 
 
-
-
 void MyFrame::UpdateStatus(void)
 {
-	wxString status;
-	if (port.Is_open() && isProgramLoaded) {
-	  status.Printf(port.get_name() + _("    Tx:%u Rx:%u     ") + firmata_name, tx_count, rx_count );
-	} else if (port.Is_open() && !isProgramLoaded){
-	  status = _("Firmata program not loaded on the arduino");
-	}else {
-	  status = _("Please choose serial port");
-	}
-	SetStatusText(status);
+  wxString status;
+  if (port.Is_open() && isProgramLoaded)
+    status.Printf(port.get_name() + _("    Tx:%u Rx:%u     ") + firmata_name, tx_count, rx_count );
+  else if (port.Is_open() && !isProgramLoaded)
+    status = _("Firmata program not loaded on the arduino");
+  else 
+    status = _("Please choose serial port");
+  SetStatusText(status);
 }	
-
 
 void MyFrame::OnModeChange(wxCommandEvent &event)
 {
-
-  if(event.GetId()==MODE_TEMP_CHANGE){
+  if(event.GetId()==MODE_TEMP_CHANGE){ //when a mode is temporarly changed in the "add pin" frame
     string modeSelected =  wx2std(modesChoice->GetStringSelection());
-
-  //pin
-  wxArrayString pinList;
-  if (modeSelected == "Input")
-    for (int i = 0; i< 128; i++){
-      if (pin_info[i].supported_modes & (1<<MODE_INPUT) && pin_info[i].sig==0) 
-	pinList.Add(wxString(wxString::Format(wxT("%d"), i)));
-    } 
-  else if (modeSelected == "Output")
-    for (int i = 0; i< 128; i++){ 
-      if (pin_info[i].supported_modes & (1<<MODE_OUTPUT) && pin_info[i].sig==0)
-	pinList.Add(wxString(wxString::Format(wxT("%d"), i)));
+    
+    //pin
+    wxArrayString pinList;
+    if (modeSelected == "Input"){
+      for (int i = 0; i< 128; i++)
+	if (pin_info[i].supported_modes & (1<<MODE_INPUT) && pin_info[i].sig==0) 
+	  pinList.Add(wxString(wxString::Format(wxT("%d"), i))); 
+    }else if (modeSelected == "Output"){
+      for (int i = 0; i< 128; i++) 
+	if (pin_info[i].supported_modes & (1<<MODE_OUTPUT) && pin_info[i].sig==0)
+	  pinList.Add(wxString(wxString::Format(wxT("%d"), i)));
+    }else if (modeSelected == "Analog") {
+      for (int i = 0; i< 128; i++)
+	if (pin_info[i].supported_modes & (1<<MODE_ANALOG) && pin_info[i].sig==0 )
+	  pinList.Add(wxString(wxString::Format(wxT("%d"), i)));
+    }else if (modeSelected == "Servo") {
+      for (int i = 0; i< 128; i++)
+	if (pin_info[i].supported_modes & (1<<MODE_SERVO) && pin_info[i].sig==0)
+	  pinList.Add(wxString(wxString::Format(wxT("%d"), i)));
+    } else if (modeSelected == "PWM"){
+      for (int i = 0; i< 128; i++)
+	if (pin_info[i].supported_modes & (1<<MODE_PWM) && pin_info[i].sig==0)
+	  pinList.Add(wxString(wxString::Format(wxT("%d"), i)));
     }
-  else if (modeSelected == "Analog")
-    for (int i = 0; i< 128; i++){
-      if (pin_info[i].supported_modes & (1<<MODE_ANALOG) && pin_info[i].sig==0 )
-	pinList.Add(wxString(wxString::Format(wxT("%d"), i)));
-  }
-  else if (modeSelected == "Servo")
-    for (int i = 0; i< 128; i++){
-      if (pin_info[i].supported_modes & (1<<MODE_SERVO) && pin_info[i].sig==0)
-	pinList.Add(wxString(wxString::Format(wxT("%d"), i)));
-    }
-  else if (modeSelected == "PWM")
-    for (int i = 0; i< 128; i++){
-      if (pin_info[i].supported_modes & (1<<MODE_PWM) && pin_info[i].sig==0)
-	pinList.Add(wxString(wxString::Format(wxT("%d"), i)));
-    }
-  pinsChoice = new wxChoice(addPinFrame, -1, wxPoint(200, 110),  wxSize(-1, -1), pinList);
-  }
-  else{     
-  int id = event.GetId();
-  int pin = id - 8000;
-  if (pin < 0 || pin > 127) return;
-  //wxChoice *ch = (wxChoice *)FindWindowById(/*id*/MODE_TEMP_CHANGE, addPinFrame);
-  //wxString sel = ch->GetStringSelection();
-  //printf("Mode Change, id = %d, pin=%d, ", id, pin);
-  //printf("Mode = %s\n", (const char *)sel);
-  // int mode = 255;
-  
-  /* if (sel.IsSameAs(_("Input"))) mode = MODE_INPUT;
-  if (sel.IsSameAs(_("Output"))) mode = MODE_OUTPUT;
-  if (sel.IsSameAs(_("Analog"))) mode = MODE_ANALOG;
-  if (sel.IsSameAs(_("PWM"))) mode = MODE_PWM;
-  if (sel.IsSameAs(_("Servo"))) mode = MODE_SERVO;
-  if (mode != pin_info[pin].mode) {*/
+    pinsChoice = new wxChoice(addPinFrame, -1, wxPoint(200, 110),  wxSize(-1, -1), pinList);
+  } else { //send the new mode to the firmware when it is selected      
+    int id = event.GetId();
+    int pin = id - 8000;
+    if (pin < 0 || pin > 127) return;
+    //wxChoice *ch = (wxChoice *)FindWindowById(/*id*/MODE_TEMP_CHANGE, addPinFrame);
+    //wxString sel = ch->GetStringSelection();
+    //printf("Mode Change, id = %d, pin=%d, ", id, pin);
+    //printf("Mode = %s\n", (const char *)sel);
+    // int mode = 255;
+    
+    /* if (sel.IsSameAs(_("Input"))) mode = MODE_INPUT;
+       if (sel.IsSameAs(_("Output"))) mode = MODE_OUTPUT;
+       if (sel.IsSameAs(_("Analog"))) mode = MODE_ANALOG;
+       if (sel.IsSameAs(_("PWM"))) mode = MODE_PWM;
+       if (sel.IsSameAs(_("Servo"))) mode = MODE_SERVO;
+       if (mode != pin_info[pin].mode) {*/
     // send the mode change message
     uint8_t buf[SIZE_MAX_NAME+3];
     buf[0] = 0xF4;
     buf[1] = pin;
     buf[2] = pin_info[pin].mode;
-    //    pin_info[pin].mode = mode;
     pin_info[pin].value = 0;
-    if (pin_info[pin].sig) {//to delete the corresponding signal
+    if (pin_info[pin].sig) {//to delete the corresponding signal if it already exist
       mapper_db_signal props = msig_properties(pin_info[pin].sig);
       if (props->is_output)
 	mdev_remove_output(dev, pin_info[pin].sig);
@@ -503,17 +428,14 @@ void MyFrame::OnModeChange(wxCommandEvent &event)
 	mdev_remove_input(dev, pin_info[pin].sig);
     }
     char signame[SIZE_MAX_NAME];
-    for (int i=0; i<SIZE_MAX_NAME; i++){
+    for (int i=0; i<SIZE_MAX_NAME; i++)
       signame[i]='\0';
-    }
-    
-    if ((pin_info[pin].name)==""){
+    if ((pin_info[pin].name)=="")
       pin_info[pin].init = false;
-    } else {
+    else {
       pin_info[pin].init = true;
-      for (int i=0; i<SIZE_MAX_NAME; i++){
+      for (int i=0; i<SIZE_MAX_NAME; i++)
 	signame[i]=(pin_info[pin].name)[i];
-      }
     }
     /*for (int i = 0; i < SIZE_MAX_NAME ; i++)
       buf[i+3] = (uint8_t)signame[i];*/	
@@ -523,90 +445,70 @@ void MyFrame::OnModeChange(wxCommandEvent &event)
     int min = 0, max;
     switch (pin_info[pin].mode) {//to create the new signal with the right mode
     case MODE_INPUT:
-      if (!pin_info[pin].init){
+      if (!pin_info[pin].init)
 	snprintf(signame, SIZE_MAX_NAME, "/digital/%i", pin);
-      }
       max = 1;
       pin_info[pin].sig = mdev_add_output(dev, signame, 1, 'i', unitsig, &min, &max);
       break;
     case MODE_OUTPUT:
-      if (!pin_info[pin].init){
+      if (!pin_info[pin].init)
 	snprintf(signame, SIZE_MAX_NAME, "/digital/%i", pin);
-      }
       max = 1;
       pin_info[pin].sig = mdev_add_input(dev, signame, 1, 'i', unitsig, &min, &max,
 					 MapperSignalHandler, (void *)pin);
       break;
     case MODE_ANALOG:
-      if (!pin_info[pin].init){
+      if (!pin_info[pin].init)
 	snprintf(signame, SIZE_MAX_NAME, "/analog/%i", pin);
-      }
       max = 1023;
       pin_info[pin].sig = mdev_add_output(dev, signame, 1, 'i', unitsig, &min, &max);
       break;
     case MODE_PWM:
-      if (!pin_info[pin].init){
+      if (!pin_info[pin].init)
 	snprintf(signame, SIZE_MAX_NAME, "/pwm/%i", pin);
-      }	
       max = 255;
       pin_info[pin].sig = mdev_add_input(dev, signame, 1, 'i', 0, &min, &max,
 					 MapperSignalHandler, (void *)pin);
       break;
     case MODE_SERVO:
-       if (!pin_info[pin].init){
+       if (!pin_info[pin].init)
 	 snprintf(signame, SIZE_MAX_NAME, "/servo/%i", pin);
-       }
       max = 180;
       pin_info[pin].sig = mdev_add_input(dev, signame, 1, 'i', unitsig, &min, &max,
 					 MapperSignalHandler, (void *)pin);
     default:
       break;
     }
-    //cout << "onModeChanged :" << signame << " " << pin_info[pin].name << endl;
-    
-    /* for (int i = 0; i < SIZE_MAX_NAME ; i++)
-      {	    
-	std::stringstream ss;
-	ss << std::hex << std::setfill('0');
-	ss << std::setw(2) << static_cast<unsigned>((int)signame[i]);
-	buf[i+3] = atoi((ss.str()).c_str());//string to integer
-      }
-     port.Write(buf, SIZE_MAX_NAME);
-     tx_count += SIZE_MAX_NAME;    
-  */
-
-  
   // create the 3rd column control for this mode
-  if (pin_info[pin].mode == MODE_OUTPUT) {
-    wxToggleButton *button = new  wxToggleButton(scroll, 7000+pin, 
-						 pin_info[pin].value ? _("High") : _("Low"));
-    button->SetValue(pin_info[pin].value);
-    add_item_to_grid(/*pin,*/pin_info[pin].grid_row, 2, button);
-  } else if (pin_info[pin].mode == MODE_INPUT) {
-    wxStaticText *text = new wxStaticText(scroll, 5000+pin,
-					  pin_info[pin].value ? _("High") : _("Low"));
-    wxSize size = wxSize(128, -1);
-    text->SetMinSize(size);
-    text->SetWindowStyle(wxALIGN_CENTRE);
-    add_item_to_grid(/*pin,*/pin_info[pin].grid_row, 2, text);
-    
-  } else if (pin_info[pin].mode == MODE_ANALOG) {
-    wxString val;
-    val.Printf(_("%d"), pin_info[pin].value);
-    wxStaticText *text = new wxStaticText(scroll, 5000+pin, val);
-    wxSize size = wxSize(128, -1);
-    text->SetMinSize(size);
-    text->SetWindowStyle(wxALIGN_CENTRE);
-    add_item_to_grid(/*pin,*/pin_info[pin].grid_row, 2, text);
-  } else if (pin_info[pin].mode == MODE_PWM || pin_info[pin].mode == MODE_SERVO) {
-    int maxval = (pin_info[pin].mode == MODE_PWM) ? 255 : 180;
-    wxSlider *slider = new wxSlider(scroll, 6000+pin,
-				    pin_info[pin].value, 0, maxval);
-    wxSize size = wxSize(128, -1);
-    slider->SetMinSize(size);
-    add_item_to_grid(/*pin,*/pin_info[pin].grid_row, 2, slider);
-  }
-  new_size();
+    if (pin_info[pin].mode == MODE_OUTPUT) {
+      wxToggleButton *button = new  wxToggleButton(scroll, 7000+pin, 
+						   pin_info[pin].value ? _("High") : _("Low"));
+      button->SetValue(pin_info[pin].value);
+      add_item_to_grid(pin_info[pin].grid_row, 2, button);
+    } else if (pin_info[pin].mode == MODE_INPUT) {
+      wxStaticText *text = new wxStaticText(scroll, 5000+pin,
+					    pin_info[pin].value ? _("High") : _("Low"));
+      wxSize size = wxSize(128, -1);
+      text->SetMinSize(size);
+      text->SetWindowStyle(wxALIGN_CENTRE);
+      add_item_to_grid(pin_info[pin].grid_row, 2, text);
+    } else if (pin_info[pin].mode == MODE_ANALOG) {
+      wxString val;
+      val.Printf(_("%d"), pin_info[pin].value);
+      wxStaticText *text = new wxStaticText(scroll, 5000+pin, val);
+      wxSize size = wxSize(128, -1);
+      text->SetMinSize(size);
+      text->SetWindowStyle(wxALIGN_CENTRE);
+      add_item_to_grid(pin_info[pin].grid_row, 2, text);
+    } else if (pin_info[pin].mode == MODE_PWM || pin_info[pin].mode == MODE_SERVO) {
+      int maxval = (pin_info[pin].mode == MODE_PWM) ? 255 : 180;
+      wxSlider *slider = new wxSlider(scroll, 6000+pin,
+				      pin_info[pin].value, 0, maxval);
+      wxSize size = wxSize(128, -1);
+      slider->SetMinSize(size);
+      add_item_to_grid(pin_info[pin].grid_row, 2, slider);
+    }
+    new_size();
   }
 }
 
@@ -715,21 +617,27 @@ void MyFrame::OnToggleButton(wxCommandEvent &event)
 	UpdateStatus();
 }
 
+//send the EEPROM orders to the firmware
 void MyFrame::OnEEPROM(wxCommandEvent &event)
-{   
+{ 
+  if (event.GetId() == WRITE_EEPROM_ID)
+    for (int i=0; i< 128; i++)
+      if (pin_info[i].name!="")
+	sendName(i);
+  
   uint8_t buf[2];
-  buf[0]=0x07;
-  if (event.GetId() == WRITE_EEPROM_ID){
+  buf[0]=0x07; 
+  if (event.GetId() == WRITE_EEPROM_ID)
     buf[1]=0;
-  }else if (event.GetId() == CLEAR_EEPROM_ID){
-    buf[1]=1;
-  }else if (event.GetId() == LOAD_EEPROM_ID){
+  else if (event.GetId() == CLEAR_EEPROM_ID)
+    buf[1]=3;//conflict with 1 (don't find why)
+  else if (event.GetId() == LOAD_EEPROM_ID)
     buf[1]=2;
-  }
   port.Write(buf, 2);
   tx_count += 2;
 }
 
+//Create a window to add a pin
 void MyFrame::OnAddPin(wxCommandEvent &event)
 {
   bool isAPinFree = false;
@@ -737,19 +645,17 @@ void MyFrame::OnAddPin(wxCommandEvent &event)
     if (pin_info[i].sig == 0 && (pin_info[i].supported_modes & (1<<MODE_INPUT) || pin_info[i].supported_modes & (1<<MODE_OUTPUT) || pin_info[i].supported_modes & (1<<MODE_ANALOG) || pin_info[i].supported_modes & (1<<MODE_PWM) || pin_info[i].supported_modes & (1<<MODE_SERVO)))//TODO: find a better way to do this ?
       isAPinFree = true;
 
-  //TODO: Add a warning if there is no pin available
-
   if (isAPinFree){
   addPinFrame = new wxFrame(scroll, -1, _("add pin"), wxPoint(500,100), wxDefaultSize, wxSTAY_ON_TOP);
   this->Disable();
 
-  //name  
+  //name
   wxStaticText *staticName = new wxStaticText(addPinFrame, -1, _("name : "), wxPoint(70, 50), wxSize(-1,-1), wxALIGN_CENTRE, _("staticText"));
   nameTextCtrl = new wxTextCtrl(addPinFrame, -1, _(""), wxPoint(200,50), wxSize(100, 25), wxTE_RICH);
   nameTextCtrl->SetMaxLength(SIZE_MAX_NAME);
 
 
-  //mode
+  //list of available mode
  wxStaticText *staticMode = new wxStaticText(addPinFrame, -1, _("available Mode : "), wxPoint(70, 80), wxSize(-1,-1), wxALIGN_CENTRE, _("staticText"));
     
   wxArrayString modeList;
@@ -789,7 +695,7 @@ void MyFrame::OnAddPin(wxCommandEvent &event)
   OnModeChange(cmd);  
   string modeSelected =  wx2std(modesChoice->GetStringSelection());
 
-  //pin
+  //list of available pins
   wxStaticText *staticPin = new wxStaticText(addPinFrame, -1, _("available pin : "), wxPoint(70, 110), wxSize(-1,-1), wxALIGN_CENTRE, _("staticText"));    
   wxArrayString pinList;
   if (modeSelected == "Input")
@@ -819,21 +725,23 @@ void MyFrame::OnAddPin(wxCommandEvent &event)
     }
   pinsChoice = new wxChoice(addPinFrame, -1, wxPoint(200, 110),  wxSize(-1, -1), pinList);
 
+  //management buttons
   wxButton *OKButton = new wxButton(addPinFrame, 7250, _(" OK "), wxPoint(100, 200), wxDefaultSize);
   wxButton *CancelButton = new wxButton(addPinFrame, 7251, _(" Cancel "), wxPoint(200, 200), wxDefaultSize);
   
   addPinFrame->Show(true);
-  }    
+  } else {
+    //TODO: Add a warning if there is no pin available
+  }
 }
-
 
 void MyFrame::OnButton(wxCommandEvent &event)
 {
-  if (event.GetId()==7251){ 
+  if (event.GetId()==7251){ // cancel button 
     addPinFrame->Show(false);
     this->Enable();
   }
-  if (event.GetId()==7250){
+  if (event.GetId()==7250){ // ok button
     bool isAFreeName = true;
     for (int i = 0; i < 128; i++)
       if (pin_info[i].grid_row!=0 && pin_info[i].name == wx2std(nameTextCtrl->GetValue()))
@@ -861,30 +769,32 @@ void MyFrame::OnButton(wxCommandEvent &event)
       pin_info[pin].name = wx2std(nameTextCtrl->GetValue());
       names[pin] =  pin_info[pin].name;
     
-      wxCommandEvent cmd = wxCommandEvent(0, 8500+pin);
-      OnTextChanged(cmd);
+      //wxCommandEvent cmd = wxCommandEvent(0, 8500+pin);
+      //OnTextChanged(cmd);
       
       add_pin(pin);
-    }else {
+    }else { 
       warning->Destroy();      
       if (!isAFreeName)
 	warning = new wxStaticText(addPinFrame, -1,  _("already exist"), wxPoint(305, 50), wxSize(-1,-1), wxALIGN_CENTRE, _("existingName"));
       if (wx2std(nameTextCtrl->GetValue())=="")
 	warning = new wxStaticText(addPinFrame, -1,  _("enter a name"), wxPoint(305, 50), wxSize(-1,-1), wxALIGN_CENTRE, _("noName"));
     }
-  } else {
+  } else { //delete button
     int id = event.GetId();
     int pin = id - 7500;
     if (pin < 0 || pin > 127) return;
     delete_pin(pin);
   }
 }
+//To send names to the firmware
+//TODO: transform the event function in a simple function
 
-void MyFrame::OnTextChanged(wxCommandEvent &event)
+//void MyFrame::OnTextChanged(wxCommandEvent &event)
+void MyFrame::sendName(int pin)
 {
-  int id = event.GetId();
-  int pin = id - 8500;
-  // int pin = id -15000;
+  //int id = event.GetId();
+  //int pin = id - 8500;
   if (pin < 0 || pin > 127) return;
   /*
   wxTextCtrl *txt = (wxTextCtrl*)FindWindowById(id, scroll);
@@ -919,69 +829,18 @@ void MyFrame::OnTextChanged(wxCommandEvent &event)
       pin_info[pin].init = false;
     } else {
       pin_info[pin].init = true;
-      for (int i=0; i<(int)(pin_info[pin].name).length(); i++){
+      for (int i=0; i<(int)(pin_info[pin].name).length(); i++)
 	  signame[i]=(pin_info[pin].name)[i];
-      }
     }
-    
     for (int i = 0; i < SIZE_MAX_NAME ; i++)
-      {	
-	//std::ostringstream oss;
-	//oss << std::hex << (int)signame[i]; //à garder pour faire un convertisseur int/ascii
-	//buf[i+3] = atoi((oss.str()).c_str());//string to integer
-	buf[i+/*3*/2] = (uint8_t)signame[i];	
-	}
-    port.Write(buf, SIZE_MAX_NAME+/*3*/2);
-    tx_count += SIZE_MAX_NAME+/*3*/2; 
-
-
-    // TODO : change only the name --> add a function in Libmapper
-    
-    // pin_info[pin].sig -> name = signame;
-    //mapper_db_signal_modify_name(pin_info[pin].sig, signame);
-    //    mdev_modify_name(pin_info[pin].sig, signame);
-
-    /*
-    char *unitsig = 0;
-    int min = 0, max;
-    switch (pin_info[pin].mode) {//to create the new signal with the right mode
-    case MODE_INPUT:
-      if (!pin_info[pin].init)
-	snprintf(signame, SIZE_MAX_NAME, "/digital/%i", pin);
-      max = 1;
-      pin_info[pin].sig = mdev_add_output(dev, signame, 1, 'i', unitsig, &min, &max);
-      break;
-    case MODE_OUTPUT:
-      if (!pin_info[pin].init)
-	snprintf(signame, SIZE_MAX_NAME, "/digital/%i", pin);
-      max = 1;
-      pin_info[pin].sig = mdev_add_input(dev, signame, 1, 'i', unitsig, &min, &max,
-					 MapperSignalHandler, (void *)pin);
-      break;
-    case MODE_ANALOG:
-      if (!pin_info[pin].init)
-	snprintf(signame, SIZE_MAX_NAME, "/analog/%i", pin);
-      max = 1023;
-      pin_info[pin].sig = mdev_add_output(dev, signame, 1, 'i', unitsig, &min, &max);
-      break;
-    case MODE_PWM:
-      if (!pin_info[pin].init)
-	snprintf(signame, SIZE_MAX_NAME, "/pwm/%i", pin);
-      max = 255;
-      pin_info[pin].sig = mdev_add_input(dev, signame, 1, 'i', 0, &min, &max,
-					 MapperSignalHandler, (void *)pin);
-      break;
-    case MODE_SERVO:
-       if (!pin_info[pin].init)
-	 snprintf(signame, SIZE_MAX_NAME, "/servo/%i", pin);
-      max = 180;
-      pin_info[pin].sig = mdev_add_input(dev, signame, 1, 'i', unitsig, &min, &max,
-					 MapperSignalHandler, (void *)pin);
-    default:
-      break;
-      }*/
+	buf[i+2] = (uint8_t)signame[i];	
+    port.Write(buf, SIZE_MAX_NAME+2);
+    tx_count += SIZE_MAX_NAME+2; 
+    // TODO : change only the name --> add a function in Libmapper (not required for the moment)
 }
 
+//convert a string from wx to std
+//TODO: gate together the two conversion functions
 std::string MyFrame::wx2std(wxString s){
   std::string s2;
   if(s.wxString::IsAscii()) {
@@ -1029,93 +888,81 @@ void MyFrame::OnSliderDrag(wxScrollEvent &event)
 	UpdateStatus();
 }
 
-/*void MyFrame::OnKey(wxKeyEvent& event) //not used for the moment
-{
-  cout << "onkey" << endl;
-  if(event.GetKeyCode() ==  9)   
-    {
-      wxTextCtrl *textctrl = wxDynamicCast( event.GetEventObject(), wxTextCtrl );
-      if( textctrl != NULL) textctrl->Navigate();
-    }
-}*/
-
-
-
 void MyFrame::OnPort(wxCommandEvent &event)
 {
-	int id = event.GetId();
-	wxString name = port_menu->FindItem(id)->GetLabel();
+  int id = event.GetId();
+  wxString name = port_menu->FindItem(id)->GetLabel();
+  
+  if (dev)
+    mdev_free(dev);
+  grid_count = 2;
+  dev = 0;
 
-    if (dev)
-        mdev_free(dev);
-    grid_count = 2;
-    dev = 0;
-    file_menu->Enable( LOAD_FILE_ID, false);
-	  file_menu->Enable( SAVE_FILE_ID, false);
-	  
-	  EEPROM_menu->Enable( WRITE_EEPROM_ID, false);
-	  EEPROM_menu->Enable( LOAD_EEPROM_ID, false);
-	  EEPROM_menu->Enable( CLEAR_EEPROM_ID, false);
-	  signal_menu->Enable( ADD_PIN_ID, false);
-	
-	  port.Close();
-	  init_data();
-	  //printf("OnPort, id = %d, name = %s\n", id, (const char *)name);
-	  if (id == 9000) return;
-	  
-	  port.Open(name);
-	  port.Set_baud(57600);
-	  if (port.Is_open()) {
-	    //printf("port is open\n");
-	    firmata_name = _("");
-	    rx_count = tx_count = 0;
-	    parse_count = 0;
-	    parse_command_len = 0;
-	    UpdateStatus();
-
-	    file_menu->Enable( LOAD_FILE_ID, true);
-	    file_menu->Enable( SAVE_FILE_ID, true);
-	    EEPROM_menu->Enable( WRITE_EEPROM_ID, true);
-	    EEPROM_menu->Enable( LOAD_EEPROM_ID, true);
-	    EEPROM_menu->Enable( CLEAR_EEPROM_ID, true);
-	    signal_menu->Enable( ADD_PIN_ID, true);
+  file_menu->Enable( LOAD_FILE_ID, false);
+  file_menu->Enable( SAVE_FILE_ID, false);
+  EEPROM_menu->Enable( WRITE_EEPROM_ID, false);
+  EEPROM_menu->Enable( LOAD_EEPROM_ID, false);
+  EEPROM_menu->Enable( CLEAR_EEPROM_ID, false);
+  signal_menu->Enable( ADD_PIN_ID, false);
+  
+  port.Close();
+  init_data();
+  //printf("OnPort, id = %d, name = %s\n", id, (const char *)name);
+  if (id == 9000) return;
+  
+  port.Open(name);
+  port.Set_baud(57600);
+  if (port.Is_open()) {
+    //printf("port is open\n");
+    firmata_name = _("");
+    rx_count = tx_count = 0;
+    parse_count = 0;
+    parse_command_len = 0;
+    UpdateStatus();
+    
+    file_menu->Enable( LOAD_FILE_ID, true);
+    file_menu->Enable( SAVE_FILE_ID, true);
+    EEPROM_menu->Enable( WRITE_EEPROM_ID, true);
+    EEPROM_menu->Enable( LOAD_EEPROM_ID, true);
+    EEPROM_menu->Enable( CLEAR_EEPROM_ID, true);
+    signal_menu->Enable( ADD_PIN_ID, true);
  
-		/* 
-		The startup strategy is to open the port and immediately
-		send the REPORT_FIRMWARE message.  When we receive the
-		firmware name reply, then we know the board is ready to
-		communicate.
-
-		For boards like Arduino which use DTR to reset, they may
-		reboot the moment the port opens.  They will not hear this
-		REPORT_FIRMWARE message, but when they finish booting up
-		they will send the firmware message.
-
-		For boards that do not reboot when the port opens, they
-		will hear this REPORT_FIRMWARE request and send the
-		response.  If this REPORT_FIRMWARE request isn't sent,
-		these boards will not automatically send this info.
-
-		Arduino boards that reboot on DTR will act like a board
-		that does not reboot, if DTR is not raised when the
-		port opens.  This program attempts to avoid raising
-		DTR on windows.  (is this possible on Linux and Mac OS-X?)
-
-		Either way, when we hear the REPORT_FIRMWARE reply, we
-		know the board is alive and ready to communicate.
-		*/
-		uint8_t buf[3];
-		buf[0] = START_SYSEX;
-		buf[1] = REPORT_FIRMWARE; // read firmata name & version
-		buf[2] = END_SYSEX;
-		port.Write(buf, 3);
-		tx_count += 3;
-		wxWakeUpIdle();
-        dev = mdev_new("Firmata", 9000, 0);
-	} else {
-		printf("error opening port\n");
-	}
-	UpdateStatus();
+    /* 
+       The startup strategy is to open the port and immediately
+       send the REPORT_FIRMWARE message.  When we receive the
+       firmware name reply, then we know the board is ready to
+       communicate.
+       
+       For boards like Arduino which use DTR to reset, they may
+       reboot the moment the port opens.  They will not hear this
+       REPORT_FIRMWARE message, but when they finish booting up
+       they will send the firmware message.
+       
+       For boards that do not reboot when the port opens, they
+       will hear this REPORT_FIRMWARE request and send the
+       response.  If this REPORT_FIRMWARE request isn't sent,
+       these boards will not automatically send this info.
+       
+       Arduino boards that reboot on DTR will act like a board
+       that does not reboot, if DTR is not raised when the
+       port opens.  This program attempts to avoid raising
+       DTR on windows.  (is this possible on Linux and Mac OS-X?)
+       
+       Either way, when we hear the REPORT_FIRMWARE reply, we
+       know the board is alive and ready to communicate.
+    */
+    uint8_t buf[3];
+    buf[0] = START_SYSEX;
+    buf[1] = REPORT_FIRMWARE; // read firmata name & version
+    buf[2] = END_SYSEX;
+    port.Write(buf, 3);
+    tx_count += 3;
+    wxWakeUpIdle();
+    dev = mdev_new("Firmata", 9000, 0);
+  } else {
+    printf("error opening port\n");
+  }
+  UpdateStatus();
 }
 
 void MyFrame::OnIdle(wxIdleEvent &event)
@@ -1123,255 +970,224 @@ void MyFrame::OnIdle(wxIdleEvent &event)
     uint8_t buf[1024];
     int r;
     if (dev)
-        mdev_poll(dev, 0);
-	//printf("Idle event\n");
+      mdev_poll(dev, 0);
     if (needs_update)
-        UpdateStatus();
-	r = port.Input_wait(40);
-	if (r > 0) {
-		r = port.Read(buf, sizeof(buf));
-		//cout << "réception : " <<  (int)*buf << endl;
-		if (r < 0) {
-			// error
-			return;
-		}
-		if (r > 0) {
-		  // parse
-		  rx_count += r;
-		  for (int i=0; i < r; i++) {
-		       //printf("%02X ", buf[i]);
-		  }
-		  //printf("\n");
-		  Parse(buf, r);
-		  UpdateStatus();
-		}
-	} else if (r < 0) {
-		return;
+      UpdateStatus();
+    r = port.Input_wait(40);
+    if (r > 0) {
+      r = port.Read(buf, sizeof(buf));
+      if (r < 0) {
+	// error
+	return;
+      }
+      if (r > 0) {
+	// parse
+	rx_count += r;
+	for (int i=0; i < r; i++) {
+	  //printf("%02X ", buf[i]);
 	}
-	event.RequestMore(true);
+	//printf("\n");
+	Parse(buf, r);
+	UpdateStatus();
+      }
+    } else if (r < 0) {
+      return;
+    }
+    event.RequestMore(true);
 }
 
 void MyFrame::Parse(const uint8_t *buf, int len)
 {
-	const uint8_t *p, *end;
-
-	p = buf;
-	end = p + len;
-
-    mdev_timetag_now(dev, &tt);
-    mdev_start_queue(dev, tt);
-	for (p = buf; p < end; p++) {
-		uint8_t msn = *p & 0xF0;
-		if (msn == 0xE0 || msn == 0x90 || *p == 0xF9) {
-		  isProgramLoaded = true;
-		  UpdateStatus();
-			parse_command_len = 3;
-			parse_count = 0;
-		} else if (msn == 0xC0 || msn == 0xD0) {
-			parse_command_len = 2;
-			parse_count = 0;
-		} else if (*p == START_SYSEX) {
-			parse_count = 0;
-			parse_command_len = sizeof(parse_buf);
-		} else if (*p == END_SYSEX) {
-			parse_command_len = parse_count + 1;
-		} else if (*p & 0x80) {
-			parse_command_len = 1;
-			parse_count = 0;
-		} else if (*p == 0x71) {
-		  parse_command_len = SIZE_MAX_NAME+2+1;
-		  parse_count = 0;
-		}
-		if (parse_count < (int)sizeof(parse_buf)) 
-			parse_buf[parse_count++] = *p;
-		if (parse_count == parse_command_len) {
-			DoMessage();
-			parse_count = parse_command_len = 0;
-		}
-	}
-    mdev_send_queue(dev, tt);
+  const uint8_t *p, *end;
+  
+  p = buf;
+  end = p + len;
+  
+  mdev_timetag_now(dev, &tt);
+  mdev_start_queue(dev, tt);
+  for (p = buf; p < end; p++) {
+    uint8_t msn = *p & 0xF0;
+    if (msn == 0xE0 || msn == 0x90 || *p == 0xF9) {
+      isProgramLoaded = true;
+      UpdateStatus();
+      parse_command_len = 3;
+      parse_count = 0;
+    } else if (msn == 0xC0 || msn == 0xD0) {
+      parse_command_len = 2;
+      parse_count = 0;
+    } else if (*p == START_SYSEX) {
+      parse_count = 0;
+      parse_command_len = sizeof(parse_buf);
+    } else if (*p == END_SYSEX) {
+      parse_command_len = parse_count + 1;
+    } else if (*p & 0x80) {
+      parse_command_len = 1;
+      parse_count = 0;
+    } else if (*p == 0x71) {
+      parse_command_len = SIZE_MAX_NAME+2+1;
+      parse_count = 0;
+    }
+    if (parse_count < (int)sizeof(parse_buf)) 
+      parse_buf[parse_count++] = *p;
+    if (parse_count == parse_command_len) {
+      DoMessage();
+      parse_count = parse_command_len = 0;
+    }
+  }
+  mdev_send_queue(dev, tt);
 }
 
 void MyFrame::DoMessage(void)
 {
-	uint8_t cmd = (parse_buf[0] & 0xF0);
-
-	
-
-
-	//printf("message, %d bytes, %02X\n", parse_count, parse_buf[0]);
-
-	if (cmd == 0xE0 && parse_count == 3) {
-		int analog_ch = (parse_buf[0] & 0x0F);
-		int analog_val = parse_buf[1] | (parse_buf[2] << 7);
-		for (int pin=0; pin<128; pin++) {
-			if (pin_info[pin].analog_channel == analog_ch) {
-				pin_info[pin].value = analog_val;
-				if (pin_info[pin].sig)
-				  msig_update(pin_info[pin].sig, &analog_val, 1, tt);
-			        //printf("pin %d is A%d = %d\n", pin, analog_ch, analog_val);
-				wxStaticText *text = (wxStaticText *)
-				FindWindowById(5000 + pin, scroll);
-				if (text) {
-					wxString val;
-					val.Printf(_("A%d: %d"), analog_ch, analog_val);
-					text->SetLabel(val);
-				}
-				return;
-			}
-		}
-		return;
+  uint8_t cmd = (parse_buf[0] & 0xF0);
+  //printf("message, %d bytes, %02X\n", parse_count, parse_buf[0]);
+  if (cmd == 0xE0 && parse_count == 3) {
+    int analog_ch = (parse_buf[0] & 0x0F);
+    int analog_val = parse_buf[1] | (parse_buf[2] << 7);
+    for (int pin=0; pin<128; pin++) {
+      if (pin_info[pin].analog_channel == analog_ch) {
+	pin_info[pin].value = analog_val;
+	if (pin_info[pin].sig)
+	  msig_update(pin_info[pin].sig, &analog_val, 1, tt);
+	//printf("pin %d is A%d = %d\n", pin, analog_ch, analog_val);
+	wxStaticText *text = (wxStaticText *)
+	  FindWindowById(5000 + pin, scroll);
+	if (text) {
+	  wxString val;
+	  val.Printf(_("A%d: %d"), analog_ch, analog_val);
+	  text->SetLabel(val);
 	}
-	if (cmd == 0x90 && parse_count == 3) {
-	  int port_num = (parse_buf[0] & 0x0F);
-		int port_val = parse_buf[1] | (parse_buf[2] << 7);
-		int pin = port_num * 8;
-		//printf("port_num = %d, port_val = %d\n", port_num, port_val);
-		for (int mask=1; mask & 0xFF; mask <<= 1, pin++) {
-			if (pin_info[pin].mode == MODE_INPUT) {
-				int val = (port_val & mask) ? 1 : 0;
-                if (pin_info[pin].sig)
-                    msig_update(pin_info[pin].sig, &val, 1, tt);
-				if (pin_info[pin].value != (uint32_t)val) {
-				  //printf("pin %d is %d\n", pin, val);
-					wxStaticText *text = (wxStaticText *)
-					  FindWindowById(5000 + pin, scroll);
-					if (text) text->SetLabel(val ? _("High") : _("Low"));
-					pin_info[pin].value = val;
-				}
-			}
-		}
-		return;
+	return;
+      }
+    }
+    return;
+  }
+  if (cmd == 0x90 && parse_count == 3) {
+    int port_num = (parse_buf[0] & 0x0F);
+    int port_val = parse_buf[1] | (parse_buf[2] << 7);
+    int pin = port_num * 8;
+    //printf("port_num = %d, port_val = %d\n", port_num, port_val);
+    for (int mask=1; mask & 0xFF; mask <<= 1, pin++) {
+      if (pin_info[pin].mode == MODE_INPUT) {
+	int val = (port_val & mask) ? 1 : 0;
+	if (pin_info[pin].sig)
+	  msig_update(pin_info[pin].sig, &val, 1, tt);
+	if (pin_info[pin].value != (uint32_t)val) {
+	  //printf("pin %d is %d\n", pin, val);
+	  wxStaticText *text = (wxStaticText *)
+	    FindWindowById(5000 + pin, scroll);
+	  if (text) text->SetLabel(val ? _("High") : _("Low"));
+	  pin_info[pin].value = val;
 	}
-	
-	//names coming from EEPROM processing
-	if (parse_buf[0] == 0x71){
-	  int pin = (int)parse_buf[1];
-	    (pin_info[pin].name).resize(SIZE_MAX_NAME);
-	    names[pin].resize(SIZE_MAX_NAME);
-	    bool isEmpty = true;
-	    for (int i=0; i<SIZE_MAX_NAME; i++){
-		(pin_info[pin].name)[i] =parse_buf[i+2];
-		if (parse_buf[i+2]!=0)
-		  isEmpty= false;
-	    }
-	    pin_info[pin].mode = parse_buf[SIZE_MAX_NAME+2];
-	    names[pin] = pin_info[pin].name;
-	    if (isEmpty){
-	      (pin_info[pin].name).clear();
-	      names[pin].clear();
-	    } else {
-	      add_pin(pin);
-	    }
+      }
+    }
+    return;
+  }
+  
+  //names coming from EEPROM processing
+  if (parse_buf[0] == 0x71){
+    int pin = (int)parse_buf[1];
+    (pin_info[pin].name).resize(SIZE_MAX_NAME);
+    names[pin].resize(SIZE_MAX_NAME);
+    bool isEmpty = true;
+    for (int i=0; i<SIZE_MAX_NAME; i++){
+      (pin_info[pin].name)[i] =parse_buf[i+2];
+      if (parse_buf[i+2]!=0)
+	isEmpty= false;
+    }
+    pin_info[pin].mode = parse_buf[SIZE_MAX_NAME+2];
+    names[pin] = pin_info[pin].name;
+    if (isEmpty){
+      (pin_info[pin].name).clear();
+      names[pin].clear();
+    } else {
+      add_pin(pin);
+    }
+  }
+  if (parse_buf[0] == START_SYSEX && parse_buf[parse_count-1] == END_SYSEX) {
+    // Sysex message
+    if (parse_buf[1] == REPORT_FIRMWARE) {
+      char name[140];
+      int len=0;
+      for (int i=4; i < parse_count-2; i+=2) 
+	name[len++] = (parse_buf[i] & 0x7F) | ((parse_buf[i+1] & 0x7F) << 7);
+      name[len++] = '-';
+      name[len++] = parse_buf[2] + '0';
+      name[len++] = '.';
+      name[len++] = parse_buf[3] + '0';
+      name[len++] = 0;
+      firmata_name = wxString(name,wxConvUTF8);
+      // query the board's capabilities only after hearing the
+      // REPORT_FIRMWARE message.  For boards that reset when
+      // the port open (eg, Arduino with reset=DTR), they are
+      // not ready to communicate for some time, so the only
+      // way to reliably query their capabilities is to wait
+      // until the REPORT_FIRMWARE message is heard.
+      uint8_t buf[80];
+      len=0;
+      buf[len++] = START_SYSEX;
+      buf[len++] = ANALOG_MAPPING_QUERY; // read analog to pin # info
+      buf[len++] = END_SYSEX;
+      buf[len++] = START_SYSEX;
+      buf[len++] = CAPABILITY_QUERY; // read capabilities
+      buf[len++] = END_SYSEX;
+      for (int i=0; i<16; i++) {
+	buf[len++] = 0xC0 | i;  // report analog
+	buf[len++] = 1;
+	buf[len++] = 0xD0 | i;  // report digital
+	buf[len++] = 1;
+      }
+      port.Write(buf, len);
+      tx_count += len;
+    } else if (parse_buf[1] == CAPABILITY_RESPONSE) {
+      int pin, i, n;
+      for (pin=0; pin < 128; pin++) 
+	pin_info[pin].supported_modes = 0;
+      for (i=2, n=0, pin=0; i<parse_count; i++) {
+	if (parse_buf[i] == 127) {
+	  pin++;
+	  n = 0;
+	  continue;
 	}
-
-
-	if (parse_buf[0] == START_SYSEX && parse_buf[parse_count-1] == END_SYSEX) {
-		// Sysex message
-		if (parse_buf[1] == REPORT_FIRMWARE) {
-			char name[140];
-			int len=0;
-			for (int i=4; i < parse_count-2; i+=2) {
-				name[len++] = (parse_buf[i] & 0x7F)
-				  | ((parse_buf[i+1] & 0x7F) << 7);
-			}
-			name[len++] = '-';
-			name[len++] = parse_buf[2] + '0';
-			name[len++] = '.';
-			name[len++] = parse_buf[3] + '0';
-			name[len++] = 0;
-			firmata_name = wxString(name,wxConvUTF8);
-			// query the board's capabilities only after hearing the
-			// REPORT_FIRMWARE message.  For boards that reset when
-			// the port open (eg, Arduino with reset=DTR), they are
-			// not ready to communicate for some time, so the only
-			// way to reliably query their capabilities is to wait
-			// until the REPORT_FIRMWARE message is heard.
-			uint8_t buf[80];
-			len=0;
-			buf[len++] = START_SYSEX;
-			buf[len++] = ANALOG_MAPPING_QUERY; // read analog to pin # info
-			buf[len++] = END_SYSEX;
-			buf[len++] = START_SYSEX;
-			buf[len++] = CAPABILITY_QUERY; // read capabilities
-			buf[len++] = END_SYSEX;
-			for (int i=0; i<16; i++) {
-				buf[len++] = 0xC0 | i;  // report analog
-				buf[len++] = 1;
-				buf[len++] = 0xD0 | i;  // report digital
-				buf[len++] = 1;
-			}
-			port.Write(buf, len);
-			tx_count += len;
-		} else if (parse_buf[1] == CAPABILITY_RESPONSE) {
-
-
-
-		  //EEPROM management with buttons
-		  /*wxButton *EEPROMButton = new wxButton(scroll, WRITE_EEPROM_ID, _("write on EEPROM"), \
-							wxPoint(0, 0), wxDefaultSize, 0,\
-							wxDefaultValidator, _("EEPROM Button"));
-		  add_item_to_grid(1, 0, EEPROMButton);
-
-		  wxButton *EEPROMClearButton = new wxButton(scroll, CLEAR_EEPROM_ID, _("Clear EEPROM"),\
-							     wxPoint(0, 0), wxDefaultSize, 0,\
-							     wxDefaultValidator, _("EEPROM Clear Button"));
-		  add_item_to_grid(1, 1, EEPROMClearButton);
-
-		  wxButton *EEPROMLoadButton = new wxButton(scroll, LOAD_EEPROM_ID, _("Load EEPROM"),\
-							    wxPoint(0, 0), wxDefaultSize, 0,\
-							    wxDefaultValidator, _("EEPROM Load Button"));
-		  add_item_to_grid(1, 2, EEPROMLoadButton);
-		  */
-
-		        int pin, i, n;
-			for (pin=0; pin < 128; pin++) {
-				pin_info[pin].supported_modes = 0;
-			}
-			for (i=2, n=0, pin=0; i<parse_count; i++) {
-				if (parse_buf[i] == 127) {
-					pin++;
-					n = 0;
-					continue;
-				}
-				if (n == 0) {
-					// first byte is supported mode
-					pin_info[pin].supported_modes |= (1<<parse_buf[i]);
-				}
-				n = n ^ 1;
-			}
-			// send a state query for for every pin with any modes
-			for (pin=0; pin < 128; pin++) {
-				uint8_t buf[512];
-				int len=0;
-				if (pin_info[pin].supported_modes) {
-					buf[len++] = START_SYSEX;
-					buf[len++] = PIN_STATE_QUERY;
-					buf[len++] = pin;
-					buf[len++] = END_SYSEX;
-				}
-				port.Write(buf, len);
-				tx_count += len;
-			}
-		} else if (parse_buf[1] == ANALOG_MAPPING_RESPONSE) {
-			int pin=0;
-			for (int i=2; i<parse_count-1; i++) {
-				pin_info[pin].analog_channel = parse_buf[i];
-				pin++;
-			}
-			return;
-		} else if (parse_buf[1] == PIN_STATE_RESPONSE && parse_count >= 6) {
-			int pin = parse_buf[2];
-			pin_info[pin].mode = parse_buf[3];
-			pin_info[pin].value = parse_buf[4];
-			if (parse_count > 6) pin_info[pin].value |= (parse_buf[5] << 7);
-			if (parse_count > 7) pin_info[pin].value |= (parse_buf[6] << 14);
-			//add_pin(pin);
-		}
-		return;
+	if (n == 0) {
+	  // first byte is supported mode
+	  pin_info[pin].supported_modes |= (1<<parse_buf[i]);
 	}
+	n = n ^ 1;
+      }
+      // send a state query for for every pin with any modes
+      for (pin=0; pin < 128; pin++) {
+	uint8_t buf[512];
+	int len=0;
+	if (pin_info[pin].supported_modes) {
+	  buf[len++] = START_SYSEX;
+	  buf[len++] = PIN_STATE_QUERY;
+	  buf[len++] = pin;
+	  buf[len++] = END_SYSEX;
+	}
+	port.Write(buf, len);
+	tx_count += len;
+      }
+    } else if (parse_buf[1] == ANALOG_MAPPING_RESPONSE) {
+      int pin=0;
+      for (int i=2; i<parse_count-1; i++) {
+	pin_info[pin].analog_channel = parse_buf[i];
+	pin++;
+      }
+      return;
+    } else if (parse_buf[1] == PIN_STATE_RESPONSE && parse_count >= 6) {
+      int pin = parse_buf[2];
+      pin_info[pin].mode = parse_buf[3];
+      pin_info[pin].value = parse_buf[4];
+      if (parse_count > 6) pin_info[pin].value |= (parse_buf[5] << 7);
+      if (parse_count > 7) pin_info[pin].value |= (parse_buf[6] << 14);
+      //add_pin(pin);
+    }
+    return;
+  }
 }
 
+//save the configuration in an extern file
 void MyFrame::OnSaveFile( wxCommandEvent&event)
 {
   string my_file;
@@ -1384,79 +1200,75 @@ void MyFrame::OnSaveFile( wxCommandEvent&event)
     my_file = wx2std(wxFileName);
   }
   strcat(&my_file[0], ".mapconf");
-  ofstream fichier(my_file.c_str(), ios::out);
-  if (fichier){
-    for (int i = 0; i<128; i++){
-      if (pin_info[i].name!=""){
-	fichier << pin_info[i].name << " " << (int)pin_info[i].mode << endl;
-	//cout <<pin_info[i].name << " " <<  (int)pin_info[i].mode << endl;
-      }
-      else 
-	fichier << "NULL 0"<< endl;
-    }
-    fichier.close();
+  ofstream file(my_file.c_str(), ios::out);
+  if (file){ 
+    for (int i = 0; i<128; i++)//TODO: save in the order on the extern file
+      if (pin_info[i].name!="")
+	file << i << " " << pin_info[i].name << " " << (int)pin_info[i].mode << endl;
+    file << "-1 -1 -1" << endl;
+    file.close();
   }
 }
-
+//load a configuration from an extern file
 void MyFrame::OnLoadFile( wxCommandEvent &event)
-{
-  for (int i = 0 ; i< 128; i++)
-    if (pin_info[i].sig!=0)
-      delete_pin(i);
+{  
   string my_file;
+  int pinTemp[128];
+  for (int i=0; i<128; i++)
+    pinTemp[i] = -1;
+  string nameTemp[128];
+  int modeTemp[128];
+  int j=0;
+  bool isFileOk = true;
+
   wxTextCtrl* tc = new wxTextCtrl(this, -1, wxT(""), wxPoint(-1, -1), 
 		      wxSize(0, 0), wxTE_MULTILINE);
 
   wxFileDialog * openFileDialog = new wxFileDialog(this, _("Load file"), _("test"), \
-						   wxEmptyString, _("*.mapconf"), wxFD_DEFAULT_STYLE, wxDefaultPosition, wxDefaultSize, _("load window"));
+						   wxEmptyString, _("*.mapconf"), \
+						   wxFD_DEFAULT_STYLE, wxDefaultPosition,\
+						   wxDefaultSize, _("load window"));
 
   if (openFileDialog->ShowModal() == wxID_OK){
     wxString wxFileName = openFileDialog->GetPath();
     tc->LoadFile(wxFileName);
-    my_file = wx2std(wxFileName);
-    
+    my_file = wx2std(wxFileName);    
   }
-  ifstream fichier(my_file.c_str(), ios::in);
-  if (fichier){
-    string contenu[128];
-    int modeTemp[128];
-    for (int j=0; j<128; j++){
-      fichier >> contenu[j] >> modeTemp[j];
-      //cout << contenu[j] << " " << modeTemp[j] << endl;
-    }
-    for (int i = 0; i < 128; i++){
-      //getline(fichier, contenu);
-      if ( contenu[i]!="NULL"){
-	pin_info[i].name = contenu[i];
-	names[i] =contenu[i];
-	pin_info[i].mode = modeTemp[i];
-	add_pin(i);
-	  
-	wxCommandEvent cmd = wxCommandEvent(0, 8500+i);
-	OnTextChanged(cmd);
+  ifstream file(my_file.c_str(), ios::in);
+  if (file){
+    
+    //delete the existing configuration
+    for (int i = 0 ; i< 128; i++)
+      if (pin_info[i].sig!=0)
+	delete_pin(i);
 
-      } else {
-	pin_info[i].name = "";
-	names[i] ="";
+    while (isFileOk){
+      file >> pinTemp[j] >> nameTemp[j] >> modeTemp[j];
+      if (pinTemp[j] == -1)
+	isFileOk = false;
+      else {
+	pin_info[pinTemp[j]].name = nameTemp[j];
+	names[pinTemp[j]] = nameTemp[j];
+	pin_info[pinTemp[j]].mode = modeTemp[j];
+	add_pin(pinTemp[j]);
       }
-	
+      j++;
     }
-    fichier.close();
+    file.close();
   } else {
     cout << "WARNING : This file doesn't exist, try again" << endl;
   }
-
 }
 
 void MyFrame::OnAbout( wxCommandEvent &event )
 {
-    wxMessageDialog dialog( this, _("Firmata Mapper 1.0\nCopyright Joseph Malloch, based on Firmata Test by Paul Stoffregen"),
-        wxT("About Firmata Mapper"), wxOK|wxICON_INFORMATION );
-    dialog.ShowModal();
+  wxMessageDialog dialog( this, _("Firmata Mapper 1.0\nCopyright Joseph Malloch, based on Firmata Test by Paul Stoffregen"), wxT("About Firmata Mapper"), wxOK|wxICON_INFORMATION );
+  dialog.ShowModal();
 }
 
 void MyFrame::OnQuit( wxCommandEvent &event )
 {
+  //TODO: ask if changes have to be saved
     if (dev)
         mdev_free(dev);
     dev = 0;
