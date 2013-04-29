@@ -161,8 +161,8 @@ MyFrame::MyFrame( wxWindow *parent, wxWindowID id, const wxString &title,
 	menu->Enable( WRITE_EEPROM_ID, false);
 	menu->Append( LOAD_EEPROM_ID, _("Load EEPROM"));
 	menu->Enable( LOAD_EEPROM_ID, false);
-	//menu->Append( CLEAR_EEPROM_ID, _("Clear EEPROM"));
-	//menu->Enable( CLEAR_EEPROM_ID, false);
+	menu->Append( CLEAR_EEPROM_ID, _("Clear EEPROM"));
+	menu->Enable( CLEAR_EEPROM_ID, false);
 	menubar->Append(menu, _("EEPROM"));
 	EEPROM_menu = menu;
 	
@@ -206,7 +206,7 @@ void MyFrame::init_data(void)
 	}
 	tx_count = rx_count = 0;
 	firmata_name = _("");
-        warning = new wxStaticText(addPinFrame, -1, _("") );
+        warning = new wxStaticText(NULL, -1, _("") );
 	isProgramLoaded = false;
 	UpdateStatus();
 	new_size();
@@ -271,17 +271,17 @@ void MyFrame::add_pin(int pin)
 	add_item_to_grid(/*pin, */pin_info[pin].grid_row, 0, wxName);
 	
 	//mode 
-	wxStaticText *modes;
+	wxStaticText *modes = new wxStaticText(scroll, -1, _("") , wxDefaultPosition, wxSize(-1,-1));
 	if (pin_info[pin].mode == MODE_INPUT) 	  
-	  modes = new wxStaticText(scroll, -1, _("Input") , wxDefaultPosition, wxSize(-1,-1));
-	if (pin_info[pin].mode == MODE_OUTPUT) 
-	  modes = new wxStaticText(scroll, -1, _("Output") , wxDefaultPosition, wxSize(-1,-1));
+	  modes->SetLabel(_("Input"));
+	if (pin_info[pin].mode == MODE_OUTPUT)
+	  modes->SetLabel(_("Output"));
 	if (pin_info[pin].mode == MODE_ANALOG)
-	  modes = new wxStaticText(scroll, -1, _("Analog") , wxDefaultPosition, wxSize(-1,-1));
+	  modes->SetLabel(_("Analog"));
 	if (pin_info[pin].mode == MODE_PWM) 
-	  modes = new wxStaticText(scroll, -1, _("PWM") , wxDefaultPosition, wxSize(-1,-1));
+	  modes->SetLabel(_("PWM"));
 	if (pin_info[pin].mode == MODE_SERVO) 
-	  modes = new wxStaticText(scroll, -1, _("Servo") , wxDefaultPosition, wxSize(-1,-1));
+	  modes->SetLabel(_("Servo"));
 		
 	pin_info[pin].name = names[pin];
 	add_item_to_grid(/*pin,*/pin_info[pin].grid_row, 1, modes); 
@@ -290,7 +290,6 @@ void MyFrame::add_pin(int pin)
 	wxButton *deleteButton = new wxButton(scroll, 7500+pin, _("delete"));
 	add_item_to_grid(pin_info[pin].grid_row, 3, deleteButton);
 
-	//TODO: change it with a normal function and rebuild all (no mean to call this here, we can do that in onAddPin
 	wxCommandEvent cmd = wxCommandEvent(wxEVT_COMMAND_CHOICE_SELECTED, 8000+pin);
 	OnModeChange(cmd);
 
@@ -525,6 +524,7 @@ void MyFrame::MapperSignalHandler(mapper_signal msig, mapper_db_signal props,
     switch (pin_info[pin].mode) {
         case MODE_OUTPUT:
         {
+	  cout << "passe output" << endl;
             val = val ? 1 : 0;
             //id = pin + 7000;
             //wxToggleButton *button = (wxToggleButton *)FindWindowById(id, scroll);
@@ -550,6 +550,7 @@ void MyFrame::MapperSignalHandler(mapper_signal msig, mapper_db_signal props,
             break;
         }
         case MODE_PWM:
+	  cout << "passe pwm" << endl;
             if (val > 255)
                 val = 255;
             //id = pin + 6000;
@@ -622,9 +623,9 @@ void MyFrame::OnEEPROM(wxCommandEvent &event)
     for (int i=0; i< 128; i++)
       if (pin_info[i].name!="")
 	sendName(i);
-  
+  cout << "passe EEPROM" << endl;
   uint8_t buf[2];
-  buf[0]=0x07; 
+  buf[0]=0x09; 
   if (event.GetId() == WRITE_EEPROM_ID)
     buf[1]=0;
   else if (event.GetId() == CLEAR_EEPROM_ID)
@@ -633,7 +634,7 @@ void MyFrame::OnEEPROM(wxCommandEvent &event)
     buf[1]=2;
   port.Write(buf, 2);
   tx_count += 2;
-}
+  }
 
 //Create a window to add a pin
 void MyFrame::OnAddPin(wxCommandEvent &event)
@@ -877,8 +878,8 @@ void MyFrame::OnSliderDrag(wxScrollEvent &event)
 		port.Write(buf, len);
 		tx_count += len;
 	}
-    if (pin_info[pin].sig)
-        msig_update_int(pin_info[pin].sig, val);
+	if (pin_info[pin].sig)
+	  msig_update_int(pin_info[pin].sig, val);
 	UpdateStatus();
 }
 
@@ -970,6 +971,7 @@ void MyFrame::OnIdle(wxIdleEvent &event)
     r = port.Input_wait(40);
     if (r > 0) {
       r = port.Read(buf, sizeof(buf));
+      //cout << buf << endl;
       if (r < 0) {
 	// error
 	return;
