@@ -289,7 +289,6 @@ void MyFrame::add_pin(int pin)
 	//delete button
 	wxButton *deleteButton = new wxButton(scroll, 7500+pin, _("delete"));
 	add_item_to_grid(pin_info[pin].grid_row, 3, deleteButton);
-
 	wxCommandEvent cmd = wxCommandEvent(wxEVT_COMMAND_CHOICE_SELECTED, 8000+pin);
 	OnModeChange(cmd);
 
@@ -301,6 +300,7 @@ void MyFrame::delete_pin(int pin)
      wxSizerItem *itemToDelete;
      wxWindow *windowToDelete;
      int index = pin_info[pin].grid_row *  grid->GetCols()+ 0 + 1;
+     //TODO: debug on MAC to find the problem of crash when delete
      for (int i =0; i<4; i++){
        itemToDelete = grid->GetItem(index);
        windowToDelete = itemToDelete->GetWindow();
@@ -309,12 +309,12 @@ void MyFrame::delete_pin(int pin)
        index++;
      }
      mapper_db_signal props = msig_properties(pin_info[pin].sig);
-      if (props->is_output)
-	mdev_remove_output(dev, pin_info[pin].sig);
-      else 
-	mdev_remove_input(dev, pin_info[pin].sig);
+     if (props->is_output)
+       mdev_remove_output(dev, pin_info[pin].sig);
+     else 
+       mdev_remove_input(dev, pin_info[pin].sig);
 
-      //reinit the pin
+     //reinit the pin
      pin_info[pin].mode = 255;
      pin_info[pin].value = 0;
      pin_info[pin].sig = 0;
@@ -524,8 +524,7 @@ void MyFrame::MapperSignalHandler(mapper_signal msig, mapper_db_signal props,
     switch (pin_info[pin].mode) {
         case MODE_OUTPUT:
         {
-	  cout << "passe output" << endl;
-            val = val ? 1 : 0;
+	    val = val ? 1 : 0;
             //id = pin + 7000;
             //wxToggleButton *button = (wxToggleButton *)FindWindowById(id, scroll);
             //button->SetValue(val);
@@ -550,8 +549,7 @@ void MyFrame::MapperSignalHandler(mapper_signal msig, mapper_db_signal props,
             break;
         }
         case MODE_PWM:
-	  cout << "passe pwm" << endl;
-            if (val > 255)
+	  if (val > 255)
                 val = 255;
             //id = pin + 6000;
             //wxSlider *slider = (wxSlider *)FindWindowById(id, scroll);
@@ -620,10 +618,16 @@ void MyFrame::OnToggleButton(wxCommandEvent &event)
 void MyFrame::OnEEPROM(wxCommandEvent &event)
 { 
   if (event.GetId() == WRITE_EEPROM_ID)
-    for (int i=0; i< 128; i++)
+    /* for (int i=0; i< 128; i++)
       if (pin_info[i].name!="")
-	sendName(i);
-  cout << "passe EEPROM" << endl;
+	sendName(i);*/
+    for (int i = 2; i <128; i++){
+      int pinTemp = searchPinByCreatedOrder(i);
+      if ( pinTemp != -1)
+	sendName(pinTemp);
+      else
+	continue;
+    }
   uint8_t buf[2];
   buf[0]=0x09; 
   if (event.GetId() == WRITE_EEPROM_ID)
@@ -645,6 +649,7 @@ void MyFrame::OnAddPin(wxCommandEvent &event)
       isAPinFree = true;
 
   if (isAPinFree){
+
   addPinFrame = new wxFrame(scroll, -1, _("add pin"), wxPoint(500,100), wxDefaultSize, wxSTAY_ON_TOP);
   this->Disable();
 
@@ -1020,7 +1025,7 @@ void MyFrame::Parse(const uint8_t *buf, int len)
       parse_command_len = 1;
       parse_count = 0;
     } else if (*p == 0x71) {
-      parse_command_len = SIZE_MAX_NAME+2+1;
+      parse_command_len = SIZE_MAX_NAME+2+1; //command + pin + name + mode 
       parse_count = 0;
     }
     if (parse_count < (int)sizeof(parse_buf)) 
@@ -1085,6 +1090,8 @@ void MyFrame::DoMessage(void)
     int pin = (int)parse_buf[1];
     (pin_info[pin].name).resize(SIZE_MAX_NAME);
     names[pin].resize(SIZE_MAX_NAME);
+
+    //check if there is a name - TODO: make it with the pin
     bool isEmpty = true;
     for (int i=0; i<SIZE_MAX_NAME; i++){
       (pin_info[pin].name)[i] =parse_buf[i+2];

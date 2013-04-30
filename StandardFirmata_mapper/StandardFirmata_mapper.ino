@@ -62,7 +62,9 @@ int samplingInterval = 19;          // how often to run the main loop (in ms)
 
 /*to stock the name of the signals*/
 byte names[TOTAL_PINS][SIZE_MAX_NAME];
+byte pinOrder[TOTAL_PINS];
 byte units[TOTAL_PINS][SIZE_MAX_UNIT];
+int pinRange;
 
 Servo servos[MAX_SERVOS];
 /*==============================================================================
@@ -181,9 +183,12 @@ void setPinModeCallback(byte pin, int mode) // /*, byte currentName[SIZE_MAX_NAM
 }
 
 void setPinNameCallback(byte pin, byte currentName[SIZE_MAX_NAME]){
-    for (int i=0; i<SIZE_MAX_NAME; i++)
-       names[pin][i] = currentName[i];//save all the names in an array
-  }
+    for (int i=0; i<SIZE_MAX_NAME; i++){
+       names[pinRange][i] = currentName[i];//save all the names in an array
+       pinOrder[pinRange] = pin;
+    }
+    pinRange++;
+}
 
 void analogWriteCallback(byte pin, int value)
 {
@@ -260,33 +265,43 @@ void reportDigitalCallback(byte port, int value)
 
 void EEPROMWritingCallback(byte truc, int action)
 {
-  Serial.print("passe ici...");
   if (action == 0){
-    Serial.print("write");
+      for (int i=0; i< EEPROM_SIZE; i++)
+          EEPROM.write(i,0);
+          
       for (int i=0; i < TOTAL_PINS; i++){
+          if (pinOrder[i]!=0){
+              EEPROM.write(i*(SIZE_MAX_NAME+2/*for pin and mode*/), pinOrder[i]);
               for (int j = 0; j < SIZE_MAX_NAME; j++)
-                     EEPROM.write(i*(SIZE_MAX_NAME+1/*for mode*/) + j, names[i][j]); //TODO : où stocker exactement  
-              EEPROM.write(i*(SIZE_MAX_NAME+1/*for mode*/) + SIZE_MAX_NAME, pinConfig[i]);
+                     EEPROM.write( i*(SIZE_MAX_NAME+2/*for pin and mode*/ ) + j+1, names[i][j]); //TODO : où stocker exactement
+
+              EEPROM.write(i*(SIZE_MAX_NAME+2/*for pin and mode*/ ) + SIZE_MAX_NAME+1, pinConfig[pinOrder[i]]);
+          }
       }
+     pinRange = 0;
+     for (int i= 0; i < TOTAL_PINS; i++){
+        pinOrder[i] = 0;
+        for (int j=0; j< SIZE_MAX_NAME; j++)
+          names[i][j] = 0;
+     }
   } else if (action == 3){
-      Serial.print("clear");
       for (int i=0; i< EEPROM_SIZE; i++)
           EEPROM.write(i,0);
       for (int i=0; i<TOTAL_PINS; i++)
           for (int j=0; j < SIZE_MAX_NAME;j++)
                names[i][j] = 0;
   } else if (action == 2 ){
-    Serial.print("load");
        for (int i=0; i < TOTAL_PINS; i++){
+           if (EEPROM.read(i*(SIZE_MAX_NAME+2)) != 0){
              Serial.write(FIRMATA_STRING);
-             Serial.write(i);
+             Serial.write(EEPROM.read(i*(SIZE_MAX_NAME+2))); //pin
              for (int j = 0; j < SIZE_MAX_NAME ; j++){
-                //if (EEPROM.read(i*SIZE_MAX_NAME +j)==0)
-                Serial.write( EEPROM.read(i*(SIZE_MAX_NAME+1) +j));
-                names[i][j] = EEPROM.read(i*(SIZE_MAX_NAME+1) +j);  
+                Serial.write( EEPROM.read(i*(SIZE_MAX_NAME+2) +j+1));//nom
+                names[i][j] = EEPROM.read(i*(SIZE_MAX_NAME+2) +j+1);  
              }
-             Serial.write( EEPROM.read(i*(SIZE_MAX_NAME+1) + SIZE_MAX_NAME));    
+             Serial.write( EEPROM.read(i*(SIZE_MAX_NAME+2) + SIZE_MAX_NAME+1));//mode
            }
+       }
   }
 }
 
@@ -447,7 +462,7 @@ void setup()
   for (int i=0; i<TOTAL_PINS; i++)
      for (int j=0; j<SIZE_MAX_NAME;j++)
         names[i][j] = 0;
-        
+  pinRange=0;
   Firmata.begin(57600);
   systemResetCallback();  // reset to default config
 }
