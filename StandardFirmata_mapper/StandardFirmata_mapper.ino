@@ -265,6 +265,7 @@ void reportDigitalCallback(byte port, int value)
 
 void EEPROMWritingCallback(byte truc, int action)
 {
+    Serial.print(" EEPROM ");
   if (action == 0){
       for (int i=0; i< EEPROM_SIZE; i++)
           EEPROM.write(i,0);
@@ -291,12 +292,13 @@ void EEPROMWritingCallback(byte truc, int action)
           for (int j=0; j < SIZE_MAX_NAME;j++)
                names[i][j] = 0;
   } else if (action == 2 ){
+      Serial.print("load");
        for (int i=0; i < TOTAL_PINS; i++){
            if (EEPROM.read(i*(SIZE_MAX_NAME+2)) != 0){
-             Serial.write(FIRMATA_STRING);
+             Serial.write(EEPROM_LOADING);
              Serial.write(EEPROM.read(i*(SIZE_MAX_NAME+2))); //pin
              for (int j = 0; j < SIZE_MAX_NAME ; j++){
-                Serial.write( EEPROM.read(i*(SIZE_MAX_NAME+2) +j+1));//nom
+                Serial.write( EEPROM.read(i*(SIZE_MAX_NAME+2) +j+1));//name
                 names[i][j] = EEPROM.read(i*(SIZE_MAX_NAME+2) +j+1);  
              }
              Serial.write( EEPROM.read(i*(SIZE_MAX_NAME+2) + SIZE_MAX_NAME+1));//mode
