@@ -17,16 +17,16 @@ To run :
 
 You can :
 
-    - Add a new pin (choose a name, a mode and a pin)
+    - Add a new pin (choose a name, a unit, a mode and a pin)
     - Save your configuration on EEPROM (and load it as long as you don't write something else on it)
     - Save your configuration on an extern file (and load it when you want)
 
 
 Warnings :
-
-    - Unit not saved in the EEPROM
-    - Externs configurations files are not compatible between two updates
-    - Delete does not work on Macs for the moment
+ 
+    - Load EEPROM does not work the first time
+    - Former saves on EEPROM and on extern file are not compatible between two updates
+    - The delete button does not work on Macs for the moment
     - When you save a configuration, if you want to replace a file, 
       	   do not select the file you want to replace but write its name 
       	   in the text control without the extension ".mapconf"

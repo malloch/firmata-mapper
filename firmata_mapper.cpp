@@ -322,24 +322,17 @@ void MyFrame::create_signal(int pin){
 
     //name mangement
     char signame[SIZE_MAX_NAME];
-    for (int i=0; i<SIZE_MAX_NAME; i++)
-      signame[i]='\0';
+    //for (int i=0; i<SIZE_MAX_NAME; i++)
+    // signame[i]='\0';
     for (int i=0; i<SIZE_MAX_NAME; i++)
       signame[i]=(pin_info[pin].name)[i];
 
+    char sigunit[SIZE_MAX_UNIT];
+    //    for (int i=0; i<SIZE_MAX_UNIT; i++)
+    //sigunit[i]='\0';
+    for (int i=0; i<SIZE_MAX_UNIT; i++)
+      sigunit[i]=(pin_info[pin].unit)[i];
     
-    //unit management
-    /*f ((pin_info[pin].unit)=="")
-      char *sigunit = 0;
-      else {*/
-    //char sigunit[SIZE_MAX_UNIT];
-      /*r (int i=0; i<SIZE_MAX_UNIT; i++)
-	sigunit[i]='\0';*/
-      //      for (int i=0; i<SIZE_MAX_UNIT; i++)
-      //sigunit[i]=(pin_info[pin].unit)[i];
-      
-      char *sigunit = 0;
-
     //to create the new signal with the right mode
     int min = 0, max;
     switch (pin_info[pin].mode) {
@@ -729,7 +722,7 @@ void MyFrame::OnEEPROM(wxCommandEvent &event)
     /* for (int i=0; i< 128; i++)
       if (pin_info[i].name!="")
 	sendName(i);*/
-    for (int i = 2; i <128; i++){
+    for (int i = 0; i <128; i++){
       int pinTemp = searchPinByCreatedOrder(i);
       if ( pinTemp != -1)
 	sendName(pinTemp);
@@ -740,13 +733,14 @@ void MyFrame::OnEEPROM(wxCommandEvent &event)
   buf[0]=0x09; 
   if (event.GetId() == WRITE_EEPROM_ID)
     buf[1]=0;
-  else if (event.GetId() == CLEAR_EEPROM_ID)
-    buf[1]=3;//conflict with 1 (don't find why)
+  /*else if (event.GetId() == CLEAR_EEPROM_ID)
+    buf[1]=3;//conflict with 1 (don't find why)*/
   else if (event.GetId() == LOAD_EEPROM_ID)
     buf[1]=2;
   port.Write(buf, 2);
   tx_count += 2;
-  }
+  //cout << "eeprom protocol" << endl;
+}
 
 //Create a window to add a pin
 void MyFrame::OnAddPin(wxCommandEvent &event)
@@ -933,7 +927,7 @@ void MyFrame::sendName(int pin)
   pin_info[pin].name = name;
   names[pin] = name;
   */
-  uint8_t buf[SIZE_MAX_NAME+2]; //+3];
+  uint8_t buf[SIZE_MAX_NAME+SIZE_MAX_UNIT+2]; //+3];
   for (int i = 0; i<SIZE_MAX_NAME+/*3*/2;i++){
     buf[i] = 0;
   }
@@ -952,18 +946,27 @@ void MyFrame::sendName(int pin)
     for (int i=0; i<SIZE_MAX_NAME; i++){
       signame[i]='\0';
     }
-    
-    if ((pin_info[pin].name)==""){
+    char sigunit[SIZE_MAX_NAME];
+    for (int i=0; i<SIZE_MAX_UNIT; i++){
+      sigunit[i]='\0';
+    }
+
+    /*if ((pin_info[pin].name)==""){
       pin_info[pin].init = false;
-    } else {
-      pin_info[pin].init = true;
+    } else {*/
+    //pin_info[pin].init = true;
       for (int i=0; i<(int)(pin_info[pin].name).length(); i++)
 	  signame[i]=(pin_info[pin].name)[i];
-    }
+      for (int i=0; i<(int)(pin_info[pin].unit).length(); i++)
+	sigunit[i]=(pin_info[pin].unit)[i];
+      //}
     for (int i = 0; i < SIZE_MAX_NAME ; i++)
-	buf[i+2] = (uint8_t)signame[i];	
-    port.Write(buf, SIZE_MAX_NAME+2);
-    tx_count += SIZE_MAX_NAME+2; 
+	buf[i+2] = (uint8_t)signame[i];
+    for (int i = 0; i < SIZE_MAX_UNIT ; i++)
+	buf[i+2+SIZE_MAX_NAME] = (uint8_t)sigunit[i];
+   
+    port.Write(buf, SIZE_MAX_NAME+SIZE_MAX_UNIT+2);
+    tx_count += SIZE_MAX_NAME+SIZE_MAX_UNIT+2; 
 }
 
 //convert a string from wx to std
@@ -1215,24 +1218,24 @@ void MyFrame::DoMessage(void)
   //names coming from EEPROM processing
   if (parse_buf[0] == 0x71){
     int pin = (int)parse_buf[1];
-    cout << "pin : " << pin;
+    //cout << "pin : " << pin;
     (pin_info[pin].name).resize(SIZE_MAX_NAME);
     names[pin].resize(SIZE_MAX_NAME);
-    cout << ", name : "<< pin_info[pin].name;
+    //cout << ", name : "<< pin_info[pin].name;
     //check if there is a name - TODO: make it with the pin
     bool isEmpty = true;
     for (int i=0; i<SIZE_MAX_NAME; i++){
       (pin_info[pin].name)[i] =parse_buf[i+2];
-      if (parse_buf[i+2]!=0)
-	isEmpty= false;
+       if (parse_buf[i+2]!=0)
+	 isEmpty= false;
     }
     pin_info[pin].mode = parse_buf[SIZE_MAX_NAME+2];
-    cout << ", mode : " << pin_info[pin].mode << endl;
+    //cout << ", mode : " << pin_info[pin].mode << endl;
     names[pin] = pin_info[pin].name;
     if (isEmpty){
       (pin_info[pin].name).clear();
       names[pin].clear();
-    } else {
+      } else {
       add_pin(pin);
     }
   }

@@ -113,16 +113,7 @@ void checkDigitalInputs(void)
  * two bit-arrays that track Digital I/O and PWM status
  */
 void setPinModeCallback(byte pin, int mode) // /*, byte currentName[SIZE_MAX_NAME]*/)
-{
-  
-  //TODO: put it in an independant callback (setNameCallback) 
-
-  //for (int i=0; i<SIZE_MAX_NAME; i++)
-    // names[pin][i] = currentName[i];//save all the names in an array
-
-     
-
-  
+{ 
   if (IS_PIN_SERVO(pin) && mode != SERVO && servos[PIN_TO_SERVO(pin)].attached()) {
     servos[PIN_TO_SERVO(pin)].detach();
   }
@@ -182,12 +173,30 @@ void setPinModeCallback(byte pin, int mode) // /*, byte currentName[SIZE_MAX_NAM
   // TODO: save status to EEPROM here, if changed
 }
 
-void setPinNameCallback(byte pin, byte currentName[SIZE_MAX_NAME]){
+void setPinNameCallback(byte pin, byte currentName[SIZE_MAX_NAME+SIZE_MAX_UNIT]){
+  
+    pinOrder[pinRange] = pin;
+    //Serial.write("pin : ");
+    //Serial.print(pin);
+    
+    //Serial.write(", name : ");    
     for (int i=0; i<SIZE_MAX_NAME; i++){
        names[pinRange][i] = currentName[i];//save all the names in an array
-       pinOrder[pinRange] = pin;
+      // Serial.write(names[pinRange][i]);
+    } 
+    //Serial.write(", unit : ");
+    for (int i=0; i<SIZE_MAX_UNIT; i++){
+       units[pinRange][i] = currentName[i+SIZE_MAX_NAME];
+       //Serial.write(units[pinRange][i]);
     }
+    //Serial.write("\0 ");
+
+    
+
+
+
     pinRange++;
+    delay(1000);
 }
 
 void analogWriteCallback(byte pin, int value)
@@ -265,7 +274,6 @@ void reportDigitalCallback(byte port, int value)
 
 void EEPROMWritingCallback(byte truc, int action)
 {
-    Serial.print(" EEPROM ");
   if (action == 0){
       for (int i=0; i< EEPROM_SIZE; i++)
           EEPROM.write(i,0);
@@ -292,7 +300,6 @@ void EEPROMWritingCallback(byte truc, int action)
           for (int j=0; j < SIZE_MAX_NAME;j++)
                names[i][j] = 0;
   } else if (action == 2 ){
-      Serial.print("load");
        for (int i=0; i < TOTAL_PINS; i++){
            if (EEPROM.read(i*(SIZE_MAX_NAME+2)) != 0){
              Serial.write(EEPROM_LOADING);
