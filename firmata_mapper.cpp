@@ -269,8 +269,9 @@ void MyFrame::add_pin(int pin)
 	
 	//name
 	wxStaticText *wxName = new wxStaticText(scroll, 15000+pin, *str , wxDefaultPosition, wxSize(-1,-1), wxALIGN_CENTER, _("staticText"));
-	add_item_to_grid(/*pin, */pin_info[pin].grid_row, 0, wxName);
-	
+	add_item_to_grid(/*pin, */pin_info[pin].grid_row, 0, wxName);			
+	pin_info[pin].name = names[pin];
+
 	//mode 
 	wxStaticText *modes = new wxStaticText(scroll, -1, _("") , wxDefaultPosition, wxSize(-1,-1));
 	if (pin_info[pin].mode == MODE_INPUT) 	  
@@ -283,18 +284,47 @@ void MyFrame::add_pin(int pin)
 	  modes->SetLabel(_("PWM"));
 	if (pin_info[pin].mode == MODE_SERVO) 
 	  modes->SetLabel(_("Servo"));
-		
-	pin_info[pin].name = names[pin];
+
 	add_item_to_grid(/*pin,*/pin_info[pin].grid_row, 1, modes); 
+	
+	
+	// create the 3rd column control for this mode
+	if (pin_info[pin].mode == MODE_OUTPUT) {
+	  wxToggleButton *button = new  wxToggleButton(scroll, 7000+pin, 
+						       pin_info[pin].value ? _("High") : _("Low"));
+	  button->SetValue(pin_info[pin].value);
+	  add_item_to_grid(pin_info[pin].grid_row, 2, button);
+	} else if (pin_info[pin].mode == MODE_INPUT) {
+	  wxStaticText *text = new wxStaticText(scroll, 5000+pin,
+						pin_info[pin].value ? _("High") : _("Low"));
+	  wxSize size = wxSize(128, -1);
+	  text->SetMinSize(size);
+	  text->SetWindowStyle(wxALIGN_CENTRE);
+	  add_item_to_grid(pin_info[pin].grid_row, 2, text);
+	} else if (pin_info[pin].mode == MODE_ANALOG) {
+	  wxString val;
+	  val.Printf(_("%d"), pin_info[pin].value);
+	  wxStaticText *text = new wxStaticText(scroll, 5000+pin, val);
+	  wxSize size = wxSize(128, -1);
+	  text->SetMinSize(size);
+	  text->SetWindowStyle(wxALIGN_CENTRE);
+	  add_item_to_grid(pin_info[pin].grid_row, 2, text);
+	} else if (pin_info[pin].mode == MODE_PWM || pin_info[pin].mode == MODE_SERVO) {
+	  int maxval = (pin_info[pin].mode == MODE_PWM) ? 255 : 180;
+	  wxSlider *slider = new wxSlider(scroll, 6000+pin,
+					  pin_info[pin].value, 0, maxval);
+	  wxSize size = wxSize(128, -1);
+	  slider->SetMinSize(size);
+	  add_item_to_grid(pin_info[pin].grid_row, 2, slider);
+	}
 	
 	//delete button
 	wxButton *deleteButton = new wxButton(scroll, 7500+pin, _("delete"));
 	add_item_to_grid(pin_info[pin].grid_row, 3, deleteButton);
+	
+	new_size();
 
-	//creation de signal
-	/*wxCommandEvent cmd = wxCommandEvent(wxEVT_COMMAND_CHOICE_SELECTED, 8000+pin);
-	  OnModeChange(cmd);*/
-
+	//create libmapper signal and 3rd column of the interface
 	create_signal(pin);
 
 }
@@ -343,7 +373,7 @@ void MyFrame::create_signal(int pin){
     case MODE_OUTPUT:
       max = 1;
       pin_info[pin].sig = mdev_add_input(dev, signame, 1, 'i', sigunit, &min, &max,
-					 MapperSignalHandler, (void *)pin);
+			 		 MapperSignalHandler, (void *)pin);
       break;
     case MODE_ANALOG:
       max = 1023;
@@ -361,37 +391,6 @@ void MyFrame::create_signal(int pin){
     default:
       break;
     }
-  // create the 3rd column control for this mode
-    if (pin_info[pin].mode == MODE_OUTPUT) {
-      wxToggleButton *button = new  wxToggleButton(scroll, 7000+pin, 
-						   pin_info[pin].value ? _("High") : _("Low"));
-      button->SetValue(pin_info[pin].value);
-      add_item_to_grid(pin_info[pin].grid_row, 2, button);
-    } else if (pin_info[pin].mode == MODE_INPUT) {
-      wxStaticText *text = new wxStaticText(scroll, 5000+pin,
-					    pin_info[pin].value ? _("High") : _("Low"));
-      wxSize size = wxSize(128, -1);
-      text->SetMinSize(size);
-      text->SetWindowStyle(wxALIGN_CENTRE);
-      add_item_to_grid(pin_info[pin].grid_row, 2, text);
-    } else if (pin_info[pin].mode == MODE_ANALOG) {
-      wxString val;
-      val.Printf(_("%d"), pin_info[pin].value);
-      wxStaticText *text = new wxStaticText(scroll, 5000+pin, val);
-      wxSize size = wxSize(128, -1);
-      text->SetMinSize(size);
-      text->SetWindowStyle(wxALIGN_CENTRE);
-      add_item_to_grid(pin_info[pin].grid_row, 2, text);
-    } else if (pin_info[pin].mode == MODE_PWM || pin_info[pin].mode == MODE_SERVO) {
-      int maxval = (pin_info[pin].mode == MODE_PWM) ? 255 : 180;
-      wxSlider *slider = new wxSlider(scroll, 6000+pin,
-				      pin_info[pin].value, 0, maxval);
-      wxSize size = wxSize(128, -1);
-      slider->SetMinSize(size);
-      add_item_to_grid(pin_info[pin].grid_row, 2, slider);
-    }
-
-    new_size();
 }
 
 //delete the pin from the interface and destroy its signal
@@ -400,7 +399,7 @@ void MyFrame::delete_pin(int pin)
      wxSizerItem *itemToDelete;
      wxWindow *windowToDelete;
      int index = pin_info[pin].grid_row *  grid->GetCols()+ 0 + 1;
-     //TODO: debug on MAC to find the problem of crash when delete
+
      for (int i =0; i<4; i++){
        itemToDelete = grid->GetItem(index);
        windowToDelete = itemToDelete->GetWindow();
@@ -763,14 +762,14 @@ void MyFrame::OnAddPin(wxCommandEvent &event)
     //name
     wxStaticText *staticName = new wxStaticText(addPinFrame, -1, _("name : "), wxPoint(70, 50),\
 						wxSize(-1,-1), wxALIGN_CENTRE, _("staticText"));
-    nameTextCtrl = new wxTextCtrl(addPinFrame, -1, _(""), wxPoint(200,50), wxSize(100, 25), wxTE_RICH);
+    nameTextCtrl = new wxTextCtrl(addPinFrame, -1, _(""), wxPoint(200,50), wxSize(100, 25));
     nameTextCtrl->SetMaxLength(SIZE_MAX_NAME);
     
 
     //unit
     wxStaticText *staticUnit = new wxStaticText(addPinFrame, -1, _("unit : "), wxPoint(70, 80),\
 						wxSize(-1,-1), wxALIGN_CENTRE, _("staticText"));
-    unitTextCtrl = new wxTextCtrl(addPinFrame, -1, _(""), wxPoint(200,80), wxSize(100, 25), wxTE_RICH);
+    unitTextCtrl = new wxTextCtrl(addPinFrame, -1, _(""), wxPoint(200,80), wxSize(100, 25));
     unitTextCtrl->SetMaxLength(SIZE_MAX_UNIT);
     
     
@@ -1155,7 +1154,7 @@ void MyFrame::Parse(const uint8_t *buf, int len)
       parse_command_len = 1;
       parse_count = 0;
     } else if (*p == 0x71) {
-      parse_command_len = SIZE_MAX_NAME+2+1; //command + pin + name + mode 
+      parse_command_len = SIZE_MAX_NAME+SIZE_MAX_UNIT+2+1; //command + pin + name + mode 
       parse_count = 0;
     }
     if (parse_count < (int)sizeof(parse_buf)) 
@@ -1217,25 +1216,41 @@ void MyFrame::DoMessage(void)
   
   //names coming from EEPROM processing
   if (parse_buf[0] == 0x71){
+
+
+    //pin
     int pin = (int)parse_buf[1];
-    //cout << "pin : " << pin;
+
+    //init
     (pin_info[pin].name).resize(SIZE_MAX_NAME);
+    (pin_info[pin].unit).resize(SIZE_MAX_UNIT);
     names[pin].resize(SIZE_MAX_NAME);
-    //cout << ", name : "<< pin_info[pin].name;
-    //check if there is a name - TODO: make it with the pin
+
+    //check if there is a name - TODO: make it with the pin -> useless now
     bool isEmpty = true;
+
+	
+    //name
     for (int i=0; i<SIZE_MAX_NAME; i++){
       (pin_info[pin].name)[i] =parse_buf[i+2];
        if (parse_buf[i+2]!=0)
 	 isEmpty= false;
     }
-    pin_info[pin].mode = parse_buf[SIZE_MAX_NAME+2];
-    //cout << ", mode : " << pin_info[pin].mode << endl;
     names[pin] = pin_info[pin].name;
-    if (isEmpty){
+
+    //unit
+    for (int i = 0; i<SIZE_MAX_UNIT; i++) 
+      (pin_info[pin].unit)[i] =parse_buf[i+2+SIZE_MAX_NAME];
+      
+    //mode
+    pin_info[pin].mode = parse_buf[SIZE_MAX_NAME+SIZE_MAX_UNIT+2];
+
+    if (isEmpty){//TODO: useless now
       (pin_info[pin].name).clear();
       names[pin].clear();
       } else {
+
+      //create a new pin
       add_pin(pin);
     }
   }
@@ -1327,7 +1342,7 @@ void MyFrame::OnSaveFile( wxCommandEvent&event)
 {
   string my_file;
   wxFileDialog * saveFileDialog = new wxFileDialog(this, _("Save File As _?"),\
-						   _("test"), wxEmptyString, \
+						   _("saves"), wxEmptyString, \
 						   _("*.mapconf"), wxFD_SAVE | wxFD_OVERWRITE_PROMPT, \
 						   wxDefaultPosition, wxDefaultSize, _("save window"));
   if (saveFileDialog->ShowModal() == wxID_OK){
@@ -1382,7 +1397,7 @@ void MyFrame::OnLoadFile( wxCommandEvent &event)
   wxTextCtrl* tc = new wxTextCtrl(this, -1, wxT(""), wxPoint(-1, -1), 
 		      wxSize(0, 0), wxTE_MULTILINE);
 
-  wxFileDialog * openFileDialog = new wxFileDialog(this, _("Load file"), _("test"), \
+  wxFileDialog * openFileDialog = new wxFileDialog(this, _("Load file"), _("saves"), \
 						   wxEmptyString, _("*.mapconf"), \
 						   wxFD_DEFAULT_STYLE, wxDefaultPosition,\
 						   wxDefaultSize, _("load window"));
