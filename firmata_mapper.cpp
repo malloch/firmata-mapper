@@ -1058,7 +1058,7 @@ void MyFrame::OnPort(wxCommandEvent &event)
   file_menu->Enable( SAVE_FILE_ID, false);
   EEPROM_menu->Enable( WRITE_EEPROM_ID, false);
   EEPROM_menu->Enable( LOAD_EEPROM_ID, false);
-  EEPROM_menu->Enable( CLEAR_EEPROM_ID, false);
+  //EEPROM_menu->Enable( CLEAR_EEPROM_ID, false);
   signal_menu->Enable( ADD_PIN_ID, false);
   
   port.Close();
@@ -1080,7 +1080,7 @@ void MyFrame::OnPort(wxCommandEvent &event)
     file_menu->Enable( SAVE_FILE_ID, true);
     EEPROM_menu->Enable( WRITE_EEPROM_ID, true);
     EEPROM_menu->Enable( LOAD_EEPROM_ID, true);
-    EEPROM_menu->Enable( CLEAR_EEPROM_ID, true);
+    //EEPROM_menu->Enable( CLEAR_EEPROM_ID, true);
     signal_menu->Enable( ADD_PIN_ID, true);
  
     /* 
