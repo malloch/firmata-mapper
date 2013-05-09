@@ -1502,21 +1502,30 @@ void MyMenu::OnShowPortList(wxMenuEvent &event)
 	if (menu != port_menu) return;
 
 	wxMenuItemList old_items = menu->GetMenuItems();
-	num = old_items.GetCount();
-	for (int i = old_items.GetCount() - 1; i >= 0; i--) {
-		menu->Delete(old_items[i]);
+	// Disable for dynamic ports
+	// Work-around menu "append" bug in wx2.8 for Mac, can't support dynamic menus.
+#ifdef __WXMAC__
+	if (old_items.GetCount() == 0)
+#endif
+	{
+	  menu->AppendRadioItem(9000, _(" (none)"));
+	  wxArrayString list = port.port_list();
+	  num = list.GetCount();
+	  for (int i=0; i < num; i++) {
+	    //printf("%d: port %s\n", i, (const char *)list[i]);
+	    item = menu->AppendRadioItem(9001 + i, list[i]);
+	    if (port.Is_open() && port.get_name().IsSameAs(list[i])) {
+	      menu->Check(9001 + i, true);
+	      any = 1;
+	    }
+	  }
+
+	  num = old_items.GetCount();
+	  for (int i = old_items.GetCount() - 1; i >= 0; i--) {
+	    menu->Delete(old_items[i]);
+	  }
 	}
-	menu->AppendRadioItem(9000, _(" (none)"));
-	wxArrayString list = port.port_list();
-	num = list.GetCount();
-	for (int i=0; i < num; i++) {
-		//printf("%d: port %s\n", i, (const char *)list[i]);
-		item = menu->AppendRadioItem(9001 + i, list[i]);
-		if (port.Is_open() && port.get_name().IsSameAs(list[i])) {
-			menu->Check(9001 + i, true);
-			any = 1;
-		}
-	}
+
 	if (!any) menu->Check(9000, true);
 }
 
