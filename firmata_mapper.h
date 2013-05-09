@@ -10,6 +10,7 @@
 #include <stdint.h>
 #include "mapper/mapper.h"
 
+#include <string>
 
 //#define LOG_MSG_TO_STDOUT
 //#define LOG_MSG_TO_WINDOW
