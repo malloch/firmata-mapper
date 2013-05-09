@@ -48,6 +48,7 @@ private:
 private:
 	void init_data(void);
 	void new_size(void);
+	void rebuild_grid();
 	void add_item_to_grid(int row, int col, wxWindow *item);
 	//void add_item_to_grid(int col, wxWindow *item);
 	void add_pin(int pin);

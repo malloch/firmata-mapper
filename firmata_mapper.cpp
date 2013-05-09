@@ -179,22 +179,53 @@ MyFrame::MyFrame( wxWindow *parent, wxWindowID id, const wxString &title,
 
 	init_data();
 	
-#if 0
-	// For testing only, add many controls so something
-	// appears in the window without requiring any
-	// actual communication...
 	for (int i=0; i<80; i++) {
 		pin_info[i].supported_modes = 7;
 		add_pin(i);
 	}
+
+#if 0
+	// For testing only, add many controls so something
+	// appears in the window without requiring any
+	// actual communication...
+    dev = mdev_new("Firmata", 9000, 0);
+
+    pin_info[0].mode = MODE_INPUT;
+    pin_info[0].analog_channel = 2;
+    pin_info[0].supported_modes = 0;
+    pin_info[0].value = 0;
+    pin_info[0].init = true;
+    pin_info[0].name = "Test1";
+    pin_info[0].grid_row = 2;
+    pin_info[0].unit = "blah";
+    pin_info[0].sig = 0;
+
+    pin_info[1].mode = MODE_INPUT;
+    pin_info[1].analog_channel = 3;
+    pin_info[1].supported_modes = 0;
+    pin_info[1].value = 0;
+    pin_info[1].init = true;
+    pin_info[1].name = "Test2";
+    pin_info[1].grid_row = 3;
+    pin_info[1].unit = "blah";
+    pin_info[1].sig = 0;
+
+    pin_info[2].mode = MODE_INPUT;
+    pin_info[2].analog_channel = 4;
+    pin_info[2].supported_modes = 0;
+    pin_info[2].value = 0;
+    pin_info[2].init = true;
+    pin_info[2].name = "Test2";
+    pin_info[2].grid_row = 4;
+    pin_info[2].unit = "blah";
+    pin_info[2].sig = 0;
+
+    rebuild_grid();
 #endif
 }
 
 void MyFrame::init_data(void)
 {
-	grid->Clear(true);
-	grid->SetRows(0);
-	grid->SetCols(5);
 	for (int i=0; i < 128; i++) {
 		pin_info[i].mode = 255;
 		pin_info[i].analog_channel = 127;
@@ -209,8 +240,8 @@ void MyFrame::init_data(void)
 	firmata_name = _("");
         warning = new wxStaticText(NULL, -1, _("") );
 	isProgramLoaded = false;
-	UpdateStatus();
-	new_size();
+
+    rebuild_grid();
 }
 
 void MyFrame::new_size(void)
@@ -397,17 +428,6 @@ void MyFrame::create_signal(int pin){
 //delete the pin from the interface and destroy its signal
 void MyFrame::delete_pin(int pin)
 {
-     wxSizerItem *itemToDelete;
-     wxWindow *windowToDelete;
-     int index = pin_info[pin].grid_row *  grid->GetCols()+ 0 + 1;
-     //TODO: debug on MAC to find the problem of crash when delete
-     for (int i =0; i<4; i++){
-       itemToDelete = grid->GetItem(index);
-       windowToDelete = itemToDelete->GetWindow();
-       grid->Replace(windowToDelete, new wxStaticText(scroll, -1, _("        ")));
-       windowToDelete->Destroy();
-       index++;
-     }
      mapper_db_signal props = msig_properties(pin_info[pin].sig);
      if (props->is_output)
        mdev_remove_output(dev, pin_info[pin].sig);
@@ -420,25 +440,31 @@ void MyFrame::delete_pin(int pin)
      pin_info[pin].sig = 0;
      pin_info[pin].init = false;
      pin_info[pin].name = "";
-     
-     //put back up the signals wich was under the one which has been deleted
-     for (int i = 0; i<128; i++)
-       if (pin_info[i].grid_row > pin_info[pin].grid_row){
-	 if (pin_info[i].grid_row == grid_count-1){
-	   index = pin_info[i].grid_row *  grid->GetCols()+ 0 + 1;
-	   for (int i =0; i<4; i++){
-	     itemToDelete = grid->GetItem(index);
-	     windowToDelete = itemToDelete->GetWindow();
-	     grid->Replace(windowToDelete, new wxStaticText(scroll, -1, _("        ")));
-	     windowToDelete->Destroy();
-	     index++;
-	   }
-	 }
-	 pin_info[i].grid_row--;
-	 add_pin(i);
-       }
+
+     // decrement grid row for all pins below it
+     for (int i=0; i<128; i++) {
+         if (pin_info[i].grid_row > pin_info[pin].grid_row)
+             pin_info[i].grid_row --;
+     }
      pin_info[pin].grid_row = 0;
-     grid_count--;
+
+     rebuild_grid();
+}
+
+void MyFrame::rebuild_grid()
+{
+     grid->Clear(true);
+     grid->SetRows(0);
+     grid->SetCols(5);
+
+     for (int i = 0; i<128; i++) {
+         if (pin_info[i].grid_row > 0) {
+             names[i] = pin_info[i].name;
+             add_pin(i);
+         }
+     }
+
+     new_size();
 }
 
 //convert a string from std to wx
