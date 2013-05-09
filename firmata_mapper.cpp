@@ -238,7 +238,7 @@ void MyFrame::init_data(void)
 	}
 	tx_count = rx_count = 0;
 	firmata_name = _("");
-        warning = new wxStaticText(NULL, -1, _("") );
+        warning = new wxStaticText(scroll, -1, _("") );
 	isProgramLoaded = false;
 
     rebuild_grid();
