@@ -61,7 +61,7 @@ $(PROG).app: $(PROG) Info.plist
 	touch $(PROG).app
 
 $(PROG).dmg: $(PROG).app
-	mkdir dmg_tmpdir
+	mkdir -p dmg_tmpdir
 	cp -r $(PROG).app dmg_tmpdir
 	hdiutil create -ov -srcfolder dmg_tmpdir -format UDBZ -volname "Firmata Mapper" $(PROG).dmg
 
