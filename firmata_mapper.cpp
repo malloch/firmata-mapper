@@ -181,7 +181,7 @@ MyFrame::MyFrame( wxWindow *parent, wxWindowID id, const wxString &title,
 	
 	for (int i=0; i<80; i++) {
 		pin_info[i].supported_modes = 7;
-		add_pin(i);
+		//add_pin(i);
 	}
 
 #if 0
