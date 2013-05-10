@@ -10,19 +10,23 @@ FINAL_TARGET = $(TARGET)
 CXX = g++
 STRIP = strip
 WXCONFIG = wx-config
-CPPFLAGS = -O2 -Wall -Wno-strict-aliasing `$(WXCONFIG) --cppflags` -D$(OS)
+CPPFLAGS = -O0 -g -Wall -Wno-strict-aliasing `$(WXCONFIG) --cppflags` -D$(OS)
 CPPFLAGS += $(shell pkg-config --cflags libmapper-0)
 LIBS = `$(WXCONFIG) --libs` $(shell pkg-config --libs libmapper-0)
 else ifeq ($(OS), MACOSX)
 TARGET = $(PROG)
 FINAL_TARGET = $(PROG).dmg
-SDK = /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.8.sdk
+SDK = $(shell ls -d /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.8.sdk /Developer/SDKs/MacOSX10.6.sdk | head -n1)
 CXX = g++
 STRIP = strip
-WXCONFIG = /opt/local/bin/wx-config
-CPPFLAGS =  -O2 -Wall -Wno-strict-aliasing -isysroot $(SDK) `$(WXCONFIG) --cppflags` -D$(OS) -x86_84
+WXCONFIG = wx-config
+CPPFLAGS =  -O2 -Wall -Wno-strict-aliasing -isysroot $(SDK) `$(WXCONFIG) --cppflags` -D$(OS)
 CPPFLAGS += $(shell pkg-config --cflags libmapper-0)
 LIBS = `$(WXCONFIG) --libs` $(shell pkg-config --libs libmapper-0)
+ifeq ($(shell wx-config --release),2.8)
+CPPFLAGS += -arch i386
+LIBS += -arch i386
+endif
 else ifeq ($(OS), WINDOWS)
 TARGET = $(PROG).exe
 FINAL_TARGET = $(TARGET)
@@ -61,7 +65,7 @@ $(PROG).app: $(PROG) Info.plist
 	touch $(PROG).app
 
 $(PROG).dmg: $(PROG).app
-	mkdir dmg_tmpdir
+	mkdir -p dmg_tmpdir
 	cp -r $(PROG).app dmg_tmpdir
 	hdiutil create -ov -srcfolder dmg_tmpdir -format UDBZ -volname "Firmata Mapper" $(PROG).dmg
 
