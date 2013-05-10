@@ -114,7 +114,6 @@ void checkDigitalInputs(void)
  */
 void setPinModeCallback(byte pin, int mode) // /*, byte currentName[SIZE_MAX_NAME]*/)
 { 
-  Serial.println("changement de mode ! ");
   if (IS_PIN_SERVO(pin) && mode != SERVO && servos[PIN_TO_SERVO(pin)].attached()) {
     servos[PIN_TO_SERVO(pin)].detach();
   }
@@ -176,21 +175,12 @@ void setPinModeCallback(byte pin, int mode) // /*, byte currentName[SIZE_MAX_NAM
 
 void setPinNameCallback(byte pin, byte currentName[SIZE_MAX_NAME+SIZE_MAX_UNIT]){
   
-    pinOrder[pinRange] = pin;
-    //Serial.write("pin : ");
-    //Serial.print(pin);
-    
-    //Serial.write(", name : ");    
-    for (int i=0; i<SIZE_MAX_NAME; i++){
+    pinOrder[pinRange] = pin; 
+    for (int i=0; i<SIZE_MAX_NAME; i++)
        names[pinRange][i] = currentName[i];//save all the names in an array
-      // Serial.write(names[pinRange][i]);
-    } 
-    //Serial.write(", unit : ");
-    for (int i=0; i<SIZE_MAX_UNIT; i++){
+
+    for (int i=0; i<SIZE_MAX_UNIT; i++)
        units[pinRange][i] = currentName[i+SIZE_MAX_NAME];
-       //Serial.write(units[pinRange][i]);
-    }
-    //Serial.write("\0 ");
 
     pinRange++;
 }
@@ -443,9 +433,11 @@ void systemResetCallback()
       }
 
   }*/
+  
+  
  
   // by default, do not report any analog inputs
-  analogInputsToReport = 0;
+  //analogInputsToReport = 0;
 
   /* send digital inputs to set the initial state on the host computer,
    * since once in the loop(), this firmware will only send on change */
@@ -515,7 +507,6 @@ void loop()
     /* ANALOGREAD - do all analogReads() at the configured sampling interval */
     for(pin=0; pin<TOTAL_PINS; pin++) {
       if (IS_PIN_ANALOG(pin) && pinConfig[pin] == ANALOG) {
-        //Serial.print("passe dans le analog...");
         analogPin = PIN_TO_ANALOG(pin);
         if (analogInputsToReport & (1 << analogPin)) {
           Firmata.sendAnalog(analogPin, analogRead(analogPin));
