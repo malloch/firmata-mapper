@@ -114,6 +114,7 @@ void checkDigitalInputs(void)
  */
 void setPinModeCallback(byte pin, int mode) // /*, byte currentName[SIZE_MAX_NAME]*/)
 { 
+  Serial.println("changement de mode ! ");
   if (IS_PIN_SERVO(pin) && mode != SERVO && servos[PIN_TO_SERVO(pin)].attached()) {
     servos[PIN_TO_SERVO(pin)].detach();
   }
@@ -270,23 +271,24 @@ void reportDigitalCallback(byte port, int value)
 void EEPROMWritingCallback(byte pin, int action)
 {
   if (action == 0){ //writing on the EEPROM
-      for (int i=0; i< EEPROM_SIZE; i++)
+      for (int i=0; i< EEPROM_SIZE; i++)//clean
           EEPROM.write(i,0);         
       for (int i=0; i < TOTAL_PINS; i++){
           if (pinOrder[i]!=0){
-              EEPROM.write(i*(SIZE_MAX_NAME+SIZE_MAX_UNIT+2/*for pin and mode*/), pinOrder[i]); // pin
+              EEPROM.write(i*(SIZE_MAX_NAME+SIZE_MAX_UNIT+2), pinOrder[i]); // pin
               for (int j = 0; j < SIZE_MAX_NAME; j++) //name
-                     EEPROM.write( i*(SIZE_MAX_NAME+SIZE_MAX_UNIT+2/*for pin and mode*/ ) + j+1, names[i][j]); 
+                     EEPROM.write( i*(SIZE_MAX_NAME+SIZE_MAX_UNIT+2) + j+1, names[i][j]); 
               for (int j=0; j < SIZE_MAX_UNIT; j++) //unit
-                     EEPROM.write( i*(SIZE_MAX_NAME+SIZE_MAX_UNIT+2/*for pin and mode*/ ) + j+1+SIZE_MAX_NAME, units[i][j]); 
-              EEPROM.write(i*(SIZE_MAX_NAME+SIZE_MAX_UNIT+2/*for pin and mode*/ ) + SIZE_MAX_NAME+SIZE_MAX_UNIT + 1, pinConfig[pinOrder[i]]); //mode
+                     EEPROM.write( i*(SIZE_MAX_NAME+SIZE_MAX_UNIT+2) + j+1+SIZE_MAX_NAME, units[i][j]); 
+              EEPROM.write(i*(SIZE_MAX_NAME+SIZE_MAX_UNIT+2) \
+                    + SIZE_MAX_NAME+SIZE_MAX_UNIT + 1, pinConfig[pinOrder[i]]); //mode
           }
       }
      pinRange = 0;
      for (int i= 0; i < TOTAL_PINS; i++){
         pinOrder[i] = 0;
-        for (int j=0; j< SIZE_MAX_NAME; j++)
-          names[i][j] = 0;
+     for (int j=0; j< SIZE_MAX_NAME; j++)
+        names[i][j] = 0;
      }
   } else if (action == 3){ //cleaning the EEPROM
       for (int i=0; i< EEPROM_SIZE; i++)
@@ -407,7 +409,7 @@ void sysexCallback(byte command, byte argc, byte *argv)
     Serial.write(START_SYSEX);
     Serial.write(ANALOG_MAPPING_RESPONSE);
     for (byte pin=0; pin < TOTAL_PINS; pin++) {
-      Serial.write(IS_PIN_ANALOG(pin) ? PIN_TO_ANALOG(pin) : 127);
+      Serial.write(IS_PIN_ANALOG(pin)? PIN_TO_ANALOG(pin) : 127);
     }
     Serial.write(END_SYSEX);
     break;
@@ -422,22 +424,26 @@ void systemResetCallback()
 {
   // initialize a defalt state
   // TODO: option to load config from EEPROM instead of default
-  for (byte i=0; i < TOTAL_PORTS; i++) {
+  /*for (byte i=0; i < TOTAL_PORTS; i++) {
     reportPINs[i] = false;      // by default, reporting off
     portConfigInputs[i] = 0;	// until activated
     previousPINs[i] = 0;
-  }
+  }*/
   // pins with analog capability default to analog input
   // otherwise, pins default to digital output
-  for (byte i=0; i < TOTAL_PINS; i++) {
-    if (IS_PIN_ANALOG(i)) {
-      // turns off pullup, configures everything
-      setPinModeCallback(i, ANALOG); //, names[i]); // /!\ do not be commented, just for a test
-    } else {
-      // sets the output to 0, configures portConfigInputs
-      setPinModeCallback(i, OUTPUT);//, names[i]); // /!\ do not be commented, just for a test
-    }
-  }
+  
+  /*for (byte i=0; i < TOTAL_PINS; i++) {
+
+      if (IS_PIN_ANALOG(i)) {
+        // turns off pullup, configures everything
+        setPinModeCallback(i, ANALOG); //, names[i]); // /!\ do not be commented, just for a test
+      } else {
+        // sets the output to 0, configures portConfigInputs
+        setPinModeCallback(i, OUTPUT);//, names[i]); // /!\ do not be commented, just for a test
+      }
+
+  }*/
+ 
   // by default, do not report any analog inputs
   analogInputsToReport = 0;
 
@@ -471,6 +477,13 @@ void setup()
   for (int i=0; i<TOTAL_PINS; i++)
      for (int j=0; j<SIZE_MAX_NAME;j++)
         names[i][j] = 0;
+        
+  for (byte i=0; i < TOTAL_PORTS; i++) {
+    reportPINs[i] = false;      // by default, reporting off
+    portConfigInputs[i] = 0;	// until activated
+    previousPINs[i] = 0;
+  }
+        
   pinRange=0;
   Firmata.begin(57600);
   systemResetCallback();  // reset to default config
@@ -502,6 +515,7 @@ void loop()
     /* ANALOGREAD - do all analogReads() at the configured sampling interval */
     for(pin=0; pin<TOTAL_PINS; pin++) {
       if (IS_PIN_ANALOG(pin) && pinConfig[pin] == ANALOG) {
+        //Serial.print("passe dans le analog...");
         analogPin = PIN_TO_ANALOG(pin);
         if (analogInputsToReport & (1 << analogPin)) {
           Firmata.sendAnalog(analogPin, analogRead(analogPin));

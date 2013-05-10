@@ -1,4 +1,4 @@
-/*  Firmata GUI-friendly libmapper interface
+ /*  Firmata GUI-friendly libmapper interface
  *  Joseph Malloch (joseph.malloch@gmail.com)
  *
  *  Adapted from firmata_test
@@ -324,7 +324,7 @@ void MyFrame::add_pin(int pin)
 	
 	new_size();
 
-	//create libmapper signal and 3rd column of the interface
+	//create libmapper signal
 	create_signal(pin);
 
 }
@@ -338,7 +338,7 @@ void MyFrame::create_signal(int pin){
     buf[2] = pin_info[pin].mode;    
     port.Write(buf, 3);
     tx_count += 3;  
-
+    //cout << "pin : " << pin << ", mode : " << (int)pin_info[pin].mode << endl; 
     pin_info[pin].value = 0;
 
     //to delete the corresponding signal if it already exist
@@ -1096,6 +1096,8 @@ void MyFrame::OnPort(wxCommandEvent &event)
 
 void MyFrame::OnIdle(wxIdleEvent &event)
 {
+  //cout << (int)(pin_info[17].mode) << endl;
+
     uint8_t buf[1024];
     int r;
     if (dev)
@@ -1105,7 +1107,7 @@ void MyFrame::OnIdle(wxIdleEvent &event)
     r = port.Input_wait(40);
     if (r > 0) {
       r = port.Read(buf, sizeof(buf));
-      //cout << buf << endl;
+      cout << buf << endl;
       if (r < 0) {
 	// error
 	return;
@@ -1182,7 +1184,7 @@ void MyFrame::DoMessage(void)
 	//printf("pin %d is A%d = %d\n", pin, analog_ch, analog_val);
 	wxStaticText *text = (wxStaticText *)
 	  FindWindowById(5000 + pin, scroll);
-	if (text) {
+	if (text /*&& pin_info[pin].mode == MODE_ANALOG*/) {
 	  wxString val;
 	  val.Printf(_("A%d: %d"), analog_ch, analog_val);
 	  text->SetLabel(val);
@@ -1244,6 +1246,7 @@ void MyFrame::DoMessage(void)
       
     //mode
     pin_info[pin].mode = parse_buf[SIZE_MAX_NAME+SIZE_MAX_UNIT+2];
+
 
     if (isEmpty){//TODO: useless now
       (pin_info[pin].name).clear();
@@ -1327,10 +1330,18 @@ void MyFrame::DoMessage(void)
       return;
     } else if (parse_buf[1] == PIN_STATE_RESPONSE && parse_count >= 6) {
       int pin = parse_buf[2];
+      //if (pin == 17)
+	//cout << "avant : " << (int)(pin_info[17].mode);
+    
       pin_info[pin].mode = parse_buf[3];
-      pin_info[pin].value = parse_buf[4];
-      if (parse_count > 6) pin_info[pin].value |= (parse_buf[5] << 7);
-      if (parse_count > 7) pin_info[pin].value |= (parse_buf[6] << 14);
+      //if (pin ==17)
+      //cout << ", après : " << (int)(pin_info[17].mode);
+    
+      //if (pin_info[pin].mode == parse_buf[3]){
+	pin_info[pin].value = parse_buf[4];
+	if (parse_count > 6) pin_info[pin].value |= (parse_buf[5] << 7);
+	if (parse_count > 7) pin_info[pin].value |= (parse_buf[6] << 14);
+	//}
       //add_pin(pin);
     }
     return;
@@ -1532,7 +1543,7 @@ bool MyApp::OnInit()
     /*addPinFrame = new wxFrame(frame, NULL, _("add a pin"), wxPoint(500, 50), wxDefaultSize);
       addPinFrame->Show(false);*/
     
-
+    
     for (int i=0;i<128;i++)
       names[i]="";
     return true;

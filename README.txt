@@ -32,5 +32,7 @@ Warnings :
       	   in the text control without the extension ".mapconf"
     - Name with a "q" in it can't be loaded from the EEPROM 
       	   (conflict with the command protocol...)
+    - Do not use the RESET button of the Arduino
+
 
 Feel free to contact me at julie.rene2@mail.mcgill.ca if you find some bugs !
