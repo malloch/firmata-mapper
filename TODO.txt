@@ -1,0 +1,8 @@
+TODO :
+- Fix the problem with wxWidgets 2.9
+- Add a visible warning if the wrong firmware is loaded on the Arduino
+- Fix the conflict between the command_ID 0x71 corresponding to the EEPROM protocol
+  and the presence of a "q" in a name
+- Fix the protocol conflict which prevent the loading of the EEPROM the first time the user ask for it
+- Add the windows of the addPinFrame in a grid and use ID and no more global variable
+- Manage the reset button of the Arduino (Loading from the Arduino ? Just reinitialize some variables ? ... )

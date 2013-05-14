@@ -24,14 +24,12 @@ You can :
 
 Warnings :
  
-    - Load EEPROM does not work the first time
     - Former saves on EEPROM and on extern file are not compatible between two updates
-    - The delete button does not work on Macs for the moment
+    - Loading EEPROM does not work the first time
+    - The delete button does not work the 2.9 version of wxWidgets for the moment
     - When you save a configuration, if you want to replace a file, 
       	   do not select the file you want to replace but write its name 
       	   in the text control without the extension ".mapconf"
-    - Name with a "q" in it can't be loaded from the EEPROM 
-      	   (conflict with the command protocol...)
     - Do not use the RESET button of the Arduino
 
 

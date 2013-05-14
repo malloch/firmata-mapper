@@ -33,11 +33,14 @@
 #include <Wire.h>
 #include <Firmata_mapper.h>
 #include <EEPROM.h>
+#include <SPI.h>
 
 #define MAX_QUERIES 8
 #define MINIMUM_SAMPLING_INTERVAL 10
 
 #define REGISTER_NOT_SPECIFIED -1
+
+#define FAKE_PIN 3
 
 /*==============================================================================
  * GLOBAL VARIABLES
@@ -228,35 +231,6 @@ void digitalWriteCallback(byte port, int value)
 }
 
 
-// -----------------------------------------------------------------------------
-/* sets bits in a bit array (int) to toggle the reporting of the analogIns
- */
-//void FirmataClass::setAnalogPinReporting(byte pin, byte state) {
-//}
-void reportAnalogCallback(byte analogPin, int value)
-{
-  if (analogPin < TOTAL_ANALOG_PINS) {
-    if(value == 0) {
-      analogInputsToReport = analogInputsToReport &~ (1 << analogPin);
-    } else {
-      analogInputsToReport = analogInputsToReport | (1 << analogPin);
-    }
-  }
-  // TODO: save status to EEPROM here, if changed
-}
-
-void reportDigitalCallback(byte port, int value)
-{
-  if (port < TOTAL_PORTS) {
-    reportPINs[port] = (byte)value;
-  }
-  // do not disable analog reporting on these 8 pins, to allow some
-  // pins used for digital, others analog.  Instead, allow both types
-  // of reporting to be enabled, but check if the pin is configured
-  // as analog when sampling the analog inputs.  Likewise, while
-  // scanning digital pins, portConfigInputs will mask off values from any
-  // pins configured as analog
-}
 
 void EEPROMWritingCallback(byte pin, int action)
 {
@@ -304,6 +278,57 @@ void EEPROMWritingCallback(byte pin, int action)
            }
        }
   }
+}
+/* 
+void sendPinName(int pin, byte ){
+   Serial.write(SEND_NAME);
+   Serial.write(pin);
+   for (int i = 0; i < SIZE_MAX_NAME ; i++)
+          Serial.write( EEPROM.read(i*(SIZE_MAX_NAME+SIZE_MAX_UNIT+2) +j+1));
+  
+}*/
+
+// -----------------------------------------------------------------
+/* SPI managment 
+*/
+/*
+int SPIValue(int pin, int data){
+  
+  digitalWrite(slaveSelectPin,LOW);
+  value = SPI.transfer(data);
+  digitalWrite(slaveSelectPin,HIGH); 
+  return value;
+}*/
+
+
+// -----------------------------------------------------------------------------
+/* sets bits in a bit array (int) to toggle the reporting of the analogIns
+ */
+//void FirmataClass::setAnalogPinReporting(byte pin, byte state) {
+//}
+void reportAnalogCallback(byte analogPin, int value)
+{
+  if (analogPin < TOTAL_ANALOG_PINS) {
+    if(value == 0) {
+      analogInputsToReport = analogInputsToReport &~ (1 << analogPin);
+    } else {
+      analogInputsToReport = analogInputsToReport | (1 << analogPin);
+    }
+  }
+  // TODO: save status to EEPROM here, if changed
+}
+
+void reportDigitalCallback(byte port, int value)
+{
+  if (port < TOTAL_PORTS) {
+    reportPINs[port] = (byte)value;
+  }
+  // do not disable analog reporting on these 8 pins, to allow some
+  // pins used for digital, others analog.  Instead, allow both types
+  // of reporting to be enabled, but check if the pin is configured
+  // as analog when sampling the analog inputs.  Likewise, while
+  // scanning digital pins, portConfigInputs will mask off values from any
+  // pins configured as analog
 }
 
 
@@ -466,6 +491,9 @@ void setup()
   Firmata.attach(SYSTEM_RESET, systemResetCallback);
   Firmata.attach(EEPROM_WRITING, EEPROMWritingCallback);  
   
+ // Firmata.setPinName(FAKE_PIN, "/accelerometer");
+  
+  
   for (int i=0; i<TOTAL_PINS; i++)
      for (int j=0; j<SIZE_MAX_NAME;j++)
         names[i][j] = 0;
@@ -479,6 +507,8 @@ void setup()
   pinRange=0;
   Firmata.begin(57600);
   systemResetCallback();  // reset to default config
+  
+  Serial.print(SS);
 }
 
 /*==============================================================================
@@ -514,4 +544,13 @@ void loop()
       }
     }
   }
+  
+  
+  /* //SPI management 
+  for(pin=0; pin<TOTAL_PINS; pin++) {
+      if (IS_PIN_SPI(pin))
+            int value = SPIValue(FAKE_PIN);
+  }*/
+  
+  
 }

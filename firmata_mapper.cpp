@@ -91,7 +91,7 @@ wxStaticText *warning;
 #define ANALOG_MAPPING_QUERY    0x69
 #define ANALOG_MAPPING_RESPONSE 0x6A
 #define REPORT_FIRMWARE         0x79 // report name and version of the firmware
-#define EEPROM_LOADING          0x71
+#define EEPROM_LOADING          0x0B
 
 #define SIZE_MAX_NAME           12
 #define SIZE_MAX_UNIT           5
@@ -109,7 +109,7 @@ BEGIN_EVENT_TABLE(MyFrame,wxFrame)
         EVT_MENU(SAVE_FILE_ID, MyFrame::OnSaveFile)
         EVT_MENU(LOAD_FILE_ID, MyFrame::OnLoadFile)
         EVT_MENU(WRITE_EEPROM_ID, MyFrame::OnEEPROM) 
-        EVT_MENU(CLEAR_EEPROM_ID, MyFrame::OnEEPROM) 
+//EVT_MENU(CLEAR_EEPROM_ID, MyFrame::OnEEPROM) 
         EVT_MENU(LOAD_EEPROM_ID, MyFrame::OnEEPROM)
         EVT_MENU(ADD_PIN_ID, MyFrame::OnAddPin)
 	EVT_MENU(wxID_ABOUT, MyFrame::OnAbout)
@@ -193,9 +193,9 @@ MyFrame::MyFrame( wxWindow *parent, wxWindowID id, const wxString &title,
 
 void MyFrame::init_data(void)
 {
-	grid->Clear(true);
-	grid->SetRows(0);
-	grid->SetCols(5);
+  //grid->Clear(true);
+  //	grid->SetRows(0);
+  //	grid->SetCols(5);
 	for (int i=0; i < 128; i++) {
 		pin_info[i].mode = 255;
 		pin_info[i].analog_channel = 127;
@@ -208,10 +208,11 @@ void MyFrame::init_data(void)
 	}
 	tx_count = rx_count = 0;
 	firmata_name = _("");
-        warning = new wxStaticText(NULL, -1, _("") );
+        warning = new wxStaticText(scroll, -1, _("") );
 	isProgramLoaded = false;
-	UpdateStatus();
-	new_size();
+	//	UpdateStatus();
+	//new_size();
+	rebuild_grid(); 
 }
 
 void MyFrame::new_size(void)
@@ -397,7 +398,7 @@ void MyFrame::create_signal(int pin){
 //delete the pin from the interface and destroy its signal
 void MyFrame::delete_pin(int pin)
 {
-     wxSizerItem *itemToDelete;
+  /* wxSizerItem *itemToDelete;
      wxWindow *windowToDelete;
      int index = pin_info[pin].grid_row *  grid->GetCols()+ 0 + 1;
 
@@ -407,7 +408,7 @@ void MyFrame::delete_pin(int pin)
        grid->Replace(windowToDelete, new wxStaticText(scroll, -1, _("        ")));
        windowToDelete->Destroy();
        index++;
-     }
+       }*/
      mapper_db_signal props = msig_properties(pin_info[pin].sig);
      if (props->is_output)
        mdev_remove_output(dev, pin_info[pin].sig);
@@ -421,6 +422,7 @@ void MyFrame::delete_pin(int pin)
      pin_info[pin].init = false;
      pin_info[pin].name = "";
      
+     /*
      //put back up the signals wich was under the one which has been deleted
      for (int i = 0; i<128; i++)
        if (pin_info[i].grid_row > pin_info[pin].grid_row){
@@ -436,10 +438,33 @@ void MyFrame::delete_pin(int pin)
 	 }
 	 pin_info[i].grid_row--;
 	 add_pin(i);
-       }
+	 }*/
+
+     // decrement grid row for all pins below it
+     for (int i=0; i<128; i++) {
+       if (pin_info[i].grid_row > pin_info[pin].grid_row)
+	 pin_info[i].grid_row --;
+     } 
      pin_info[pin].grid_row = 0;
-     grid_count--;
+     //grid_count--;
+     rebuild_grid(); 
 }
+
+void MyFrame::rebuild_grid()
+{
+  grid->Clear(true);
+  grid->SetRows(0);
+  grid->SetCols(5);
+  
+  for (int i = 0; i<128; i++) {
+  if (pin_info[i].grid_row > 0) {
+    names[i] = pin_info[i].name;
+    add_pin(i);
+  }
+ }
+ 
+  new_size();
+} 
 
 //convert a string from std to wx
 wxString std2wx(std::string s){
@@ -719,9 +744,6 @@ void MyFrame::OnToggleButton(wxCommandEvent &event)
 void MyFrame::OnEEPROM(wxCommandEvent &event)
 { 
   if (event.GetId() == WRITE_EEPROM_ID)
-    /* for (int i=0; i< 128; i++)
-      if (pin_info[i].name!="")
-	sendName(i);*/
     for (int i = 0; i <128; i++){
       int pinTemp = searchPinByCreatedOrder(i);
       if ( pinTemp != -1)
@@ -739,7 +761,6 @@ void MyFrame::OnEEPROM(wxCommandEvent &event)
     buf[1]=2;
   port.Write(buf, 2);
   tx_count += 2;
-  //cout << "eeprom protocol" << endl;
 }
 
 //Create a window to add a pin
@@ -1032,7 +1053,7 @@ void MyFrame::OnPort(wxCommandEvent &event)
   file_menu->Enable( SAVE_FILE_ID, false);
   EEPROM_menu->Enable( WRITE_EEPROM_ID, false);
   EEPROM_menu->Enable( LOAD_EEPROM_ID, false);
-  EEPROM_menu->Enable( CLEAR_EEPROM_ID, false);
+  //EEPROM_menu->Enable( CLEAR_EEPROM_ID, false);
   signal_menu->Enable( ADD_PIN_ID, false);
   
   port.Close();
@@ -1054,7 +1075,7 @@ void MyFrame::OnPort(wxCommandEvent &event)
     file_menu->Enable( SAVE_FILE_ID, true);
     EEPROM_menu->Enable( WRITE_EEPROM_ID, true);
     EEPROM_menu->Enable( LOAD_EEPROM_ID, true);
-    EEPROM_menu->Enable( CLEAR_EEPROM_ID, true);
+    //EEPROM_menu->Enable( CLEAR_EEPROM_ID, true);
     signal_menu->Enable( ADD_PIN_ID, true);
  
     /* 
@@ -1097,8 +1118,6 @@ void MyFrame::OnPort(wxCommandEvent &event)
 
 void MyFrame::OnIdle(wxIdleEvent &event)
 {
-  //cout << (int)(pin_info[17].mode) << endl;
-
     uint8_t buf[1024];
     int r;
     if (dev)
@@ -1219,19 +1238,20 @@ void MyFrame::DoMessage(void)
   }
   
   //names coming from EEPROM processing
-  if (parse_buf[0] == EEPROM_LOADING){
+  if (parse_buf[0] == EEPROM_LOADING/* && parse_buf[1]>0 && parse_buf[1]<=70*/){
 
+    bool isEmpty = true;
+    bool isAvailable = true;
 
     //pin
     int pin = (int)parse_buf[1];
+    if (pin <0 || pin>70)
+      isAvailable = false;
 
     //init
     (pin_info[pin].name).resize(SIZE_MAX_NAME);
     (pin_info[pin].unit).resize(SIZE_MAX_UNIT);
     names[pin].resize(SIZE_MAX_NAME);
-
-    //check if there is a name - TODO: make it with the pin -> useless now
-    bool isEmpty = true;
 
 	
     //name
@@ -1248,13 +1268,15 @@ void MyFrame::DoMessage(void)
       
     //mode
     pin_info[pin].mode = parse_buf[SIZE_MAX_NAME+SIZE_MAX_UNIT+2];
+    if ( pin_info[pin].mode<=0 || pin_info[pin].mode>=5)
+      isAvailable = false;
 
-
-    if (isEmpty){//TODO: useless now
+    if (isEmpty || !isAvailable){//TODO: useless now
       (pin_info[pin].name).clear();
       names[pin].clear();
+      (pin_info[pin].unit).clear();
+      pin_info[pin].mode = 255;
       } else {
-
       //create a new pin
       add_pin(pin);
     }
@@ -1332,18 +1354,10 @@ void MyFrame::DoMessage(void)
       return;
     } else if (parse_buf[1] == PIN_STATE_RESPONSE && parse_count >= 6) {
       int pin = parse_buf[2];
-      //if (pin == 17)
-	//cout << "avant : " << (int)(pin_info[17].mode);
-    
       pin_info[pin].mode = parse_buf[3];
-      //if (pin ==17)
-      //cout << ", après : " << (int)(pin_info[17].mode);
-    
-      //if (pin_info[pin].mode == parse_buf[3]){
-	pin_info[pin].value = parse_buf[4];
-	if (parse_count > 6) pin_info[pin].value |= (parse_buf[5] << 7);
-	if (parse_count > 7) pin_info[pin].value |= (parse_buf[6] << 14);
-	//}
+      pin_info[pin].value = parse_buf[4];
+      if (parse_count > 6) pin_info[pin].value |= (parse_buf[5] << 7);
+      if (parse_count > 7) pin_info[pin].value |= (parse_buf[6] << 14);
       //add_pin(pin);
     }
     return;
@@ -1466,7 +1480,7 @@ void MyFrame::OnLoadFile( wxCommandEvent &event)
 
 void MyFrame::OnAbout( wxCommandEvent &event )
 {
-  wxMessageDialog dialog( this, _("Firmata Mapper 1.0\nCopyright Joseph Malloch, based on Firmata Test by Paul Stoffregen"), wxT("About Firmata Mapper"), wxOK|wxICON_INFORMATION );
+  wxMessageDialog dialog( this, _("Firmata Mapper 1.0\nCopyright Joseph Malloch and Julie René, based on Firmata Test by Paul Stoffregen"), wxT("About Firmata Mapper"), wxOK|wxICON_INFORMATION );
   dialog.ShowModal();
 }
 
@@ -1512,23 +1526,33 @@ void MyMenu::OnShowPortList(wxMenuEvent &event)
 	if (menu != port_menu) return;
 
 	wxMenuItemList old_items = menu->GetMenuItems();
-	num = old_items.GetCount();
-	for (int i = old_items.GetCount() - 1; i >= 0; i--) {
-		menu->Delete(old_items[i]);
-	}
-	menu->AppendRadioItem(9000, _(" (none)"));
-	wxArrayString list = port.port_list();
-	num = list.GetCount();
-	for (int i=0; i < num; i++) {
-		//printf("%d: port %s\n", i, (const char *)list[i]);
-		item = menu->AppendRadioItem(9001 + i, list[i]);
-		if (port.Is_open() && port.get_name().IsSameAs(list[i])) {
-			menu->Check(9001 + i, true);
-			any = 1;
-		}
-	}
+
+	// Disable for dynamic ports
+	// Work-around menu "append" bug in wx2.8 for Mac, can't support dynamic menus.
+#ifdef __WXMAC__
+	if (old_items.GetCount() == 0)
+#endif
+	  {
+	    menu->AppendRadioItem(9000, _(" (none)"));
+	    wxArrayString list = port.port_list();
+	    num = list.GetCount();
+	    for (int i=0; i < num; i++) {
+	      //printf("%d: port %s\n", i, (const char *)list[i]);
+	      item = menu->AppendRadioItem(9001 + i, list[i]);
+	      if (port.Is_open() && port.get_name().IsSameAs(list[i])) {
+		menu->Check(9001 + i, true);
+		any = 1;
+	      }
+	    }
+	    
+	    num = old_items.GetCount();
+	    for (int i = old_items.GetCount() - 1; i >= 0; i--) {
+	      menu->Delete(old_items[i]);
+	    }
+	  }
+	
 	if (!any) menu->Check(9000, true);
-}
+} 
 
 void MyMenu::OnHighlight(wxMenuEvent &event)
 {
