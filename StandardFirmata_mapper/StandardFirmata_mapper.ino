@@ -70,6 +70,8 @@ byte units[TOTAL_PINS][SIZE_MAX_UNIT];
 int pinRange;
 
 Servo servos[MAX_SERVOS];
+
+boolean isSPIActiv = false;
 /*==============================================================================
  * FUNCTIONS
  *============================================================================*/
@@ -279,26 +281,19 @@ void EEPROMWritingCallback(byte pin, int action)
        }
   }
 }
-/* 
-void sendPinName(int pin, byte ){
-   Serial.write(SEND_NAME);
-   Serial.write(pin);
-   for (int i = 0; i < SIZE_MAX_NAME ; i++)
-          Serial.write( EEPROM.read(i*(SIZE_MAX_NAME+SIZE_MAX_UNIT+2) +j+1));
-  
-}*/
+
+
 
 // -----------------------------------------------------------------
 /* SPI managment 
 */
-/*
-int SPIValue(int pin, int data){
+int SPItransfer(int SSpin, int data){
   
-  digitalWrite(slaveSelectPin,LOW);
-  value = SPI.transfer(data);
-  digitalWrite(slaveSelectPin,HIGH); 
+  digitalWrite(SSpin,LOW);
+  int value = SPI.transfer(data);
+  digitalWrite(SSpin,HIGH); 
   return value;
-}*/
+}
 
 
 // -----------------------------------------------------------------------------
@@ -545,12 +540,15 @@ void loop()
     }
   }
   
+  Firmata.sendPinName(1, "/prout");
   
-  /* //SPI management 
-  for(pin=0; pin<TOTAL_PINS; pin++) {
-      if (IS_PIN_SPI(pin))
-            int value = SPIValue(FAKE_PIN);
-  }*/
+  //SPI management 
+  for(pin=0; pin<TOTAL_PINS; pin++){
+      if (IS_PIN_SPI(pin) && isSPIActiv ){
+            Firmata.sendAnalog(FAKE_PIN, SPItransfer(pin, 0));
+      }
+  }
+  
   
   
 }

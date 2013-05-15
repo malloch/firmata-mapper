@@ -180,14 +180,52 @@ MyFrame::MyFrame( wxWindow *parent, wxWindowID id, const wxString &title,
 
 	init_data();
 	
-#if 0
+	/*#if 0
 	// For testing only, add many controls so something
 	// appears in the window without requiring any
 	// actual communication...
 	for (int i=0; i<80; i++) {
 		pin_info[i].supported_modes = 7;
 		add_pin(i);
-	}
+		}*/
+
+#if 0
+	// For testing only, add many controls so something
+	// appears in the window without requiring any
+	// actual communication...
+	dev = mdev_new("Firmata", 9000, 0);
+
+	pin_info[0].mode = MODE_INPUT;
+	pin_info[0].analog_channel = 2;
+	pin_info[0].supported_modes = 0;
+	pin_info[0].value = 0;
+	pin_info[0].init = true;
+	pin_info[0].name = "Test1";
+	pin_info[0].grid_row = 2;
+	pin_info[0].unit = "blah";
+	pin_info[0].sig = 0;
+	
+	pin_info[1].mode = MODE_INPUT;
+	pin_info[1].analog_channel = 3;
+	pin_info[1].supported_modes = 0;
+	pin_info[1].value = 0;
+	pin_info[1].init = true;
+	pin_info[1].name = "Test2";
+	pin_info[1].grid_row = 3;
+	pin_info[1].unit = "blah";
+	pin_info[1].sig = 0;
+	
+	pin_info[2].mode = MODE_INPUT;
+	pin_info[2].analog_channel = 4;
+	pin_info[2].supported_modes = 0;
+	pin_info[2].value = 0;
+	pin_info[2].init = true;
+	pin_info[2].name = "Test2";
+	pin_info[2].grid_row = 4;
+	pin_info[2].unit = "blah";
+	pin_info[2].sig = 0;
+	
+	rebuild_grid(); 
 #endif
 }
 
