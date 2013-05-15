@@ -92,6 +92,7 @@ wxStaticText *warning;
 #define ANALOG_MAPPING_RESPONSE 0x6A
 #define REPORT_FIRMWARE         0x79 // report name and version of the firmware
 #define EEPROM_LOADING          0x0B
+#define RECEIVE_NAME            0x0C
 
 #define SIZE_MAX_NAME           12
 #define SIZE_MAX_UNIT           5
@@ -1156,6 +1157,7 @@ void MyFrame::OnPort(wxCommandEvent &event)
 
 void MyFrame::OnIdle(wxIdleEvent &event)
 {
+  //cout << "name : " << pin_info[14].name << endl;
     uint8_t buf[1024];
     int r;
     if (dev)
@@ -1165,7 +1167,7 @@ void MyFrame::OnIdle(wxIdleEvent &event)
     r = port.Input_wait(40);
     if (r > 0) {
       r = port.Read(buf, sizeof(buf));
-      //cout << buf << endl;
+      //cout <<  "buf : " << buf << endl;
       if (r < 0) {
 	// error
 	return;
@@ -1214,9 +1216,12 @@ void MyFrame::Parse(const uint8_t *buf, int len)
       parse_command_len = 1;
       parse_count = 0;
     } else if (*p == EEPROM_LOADING) {
-      parse_command_len = SIZE_MAX_NAME+SIZE_MAX_UNIT+2+1; //command + pin + name + mode 
+      parse_command_len = SIZE_MAX_NAME+SIZE_MAX_UNIT+3; //command + pin + name + mode 
       parse_count = 0;
-    }
+    } else if (*p == RECEIVE_NAME){
+      parse_command_len = SIZE_MAX_NAME+2;
+      parse_count = 0;
+    } 
     if (parse_count < (int)sizeof(parse_buf)) 
       parse_buf[parse_count++] = *p;
     if (parse_count == parse_command_len) {
@@ -1237,12 +1242,13 @@ void MyFrame::DoMessage(void)
     for (int pin=0; pin<128; pin++) {
       if (pin_info[pin].analog_channel == analog_ch) {
 	pin_info[pin].value = analog_val;
+	//cout << "pin : " << pin << ", value : " << analog_val << endl;
 	if (pin_info[pin].sig)
 	  msig_update(pin_info[pin].sig, &analog_val, 1, tt);
 	//printf("pin %d is A%d = %d\n", pin, analog_ch, analog_val);
 	wxStaticText *text = (wxStaticText *)
 	  FindWindowById(5000 + pin, scroll);
-	if (text /*&& pin_info[pin].mode == MODE_ANALOG*/) {
+	if (text) {
 	  wxString val;
 	  val.Printf(_("A%d: %d"), analog_ch, analog_val);
 	  text->SetLabel(val);
@@ -1319,6 +1325,14 @@ void MyFrame::DoMessage(void)
       add_pin(pin);
     }
   }
+  
+  if (parse_buf[0] == RECEIVE_NAME && parse_buf[1]>0 && parse_buf[1]<=70){
+    int pin = parse_buf[1];
+    (pin_info[pin].name).resize(SIZE_MAX_NAME);
+    for (int i=0; i<SIZE_MAX_NAME; i++)
+      (pin_info[pin].name)[i]=parse_buf[i+2];
+  }
+  
   if (parse_buf[0] == START_SYSEX && parse_buf[parse_count-1] == END_SYSEX) {
     // Sysex message
     if (parse_buf[1] == REPORT_FIRMWARE) {
@@ -1614,7 +1628,6 @@ bool MyApp::OnInit()
     
     /*addPinFrame = new wxFrame(frame, NULL, _("add a pin"), wxPoint(500, 50), wxDefaultSize);
       addPinFrame->Show(false);*/
-    
     
     for (int i=0;i<128;i++)
       names[i]="";

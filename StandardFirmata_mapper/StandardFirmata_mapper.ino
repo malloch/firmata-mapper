@@ -40,7 +40,7 @@
 
 #define REGISTER_NOT_SPECIFIED -1
 
-#define FAKE_PIN 3
+#define FAKE_PIN 14
 
 /*==============================================================================
  * GLOBAL VARIABLES
@@ -283,19 +283,6 @@ void EEPROMWritingCallback(byte pin, int action)
 }
 
 
-
-// -----------------------------------------------------------------
-/* SPI managment 
-*/
-int SPItransfer(int SSpin, int data){
-  
-  digitalWrite(SSpin,LOW);
-  int value = SPI.transfer(data);
-  digitalWrite(SSpin,HIGH); 
-  return value;
-}
-
-
 // -----------------------------------------------------------------------------
 /* sets bits in a bit array (int) to toggle the reporting of the analogIns
  */
@@ -486,8 +473,6 @@ void setup()
   Firmata.attach(SYSTEM_RESET, systemResetCallback);
   Firmata.attach(EEPROM_WRITING, EEPROMWritingCallback);  
   
- // Firmata.setPinName(FAKE_PIN, "/accelerometer");
-  
   
   for (int i=0; i<TOTAL_PINS; i++)
      for (int j=0; j<SIZE_MAX_NAME;j++)
@@ -503,7 +488,10 @@ void setup()
   Firmata.begin(57600);
   systemResetCallback();  // reset to default config
   
-  Serial.print(SS);
+   if (isSPIActiv){
+     Firmata.sendPinName(FAKE_PIN, "name test");
+  } 
+  
 }
 
 /*==============================================================================
@@ -539,14 +527,10 @@ void loop()
       }
     }
   }
-  
-  Firmata.sendPinName(1, "/prout");
-  
+
   //SPI management 
-  for(pin=0; pin<TOTAL_PINS; pin++){
-      if (IS_PIN_SPI(pin) && isSPIActiv ){
-            Firmata.sendAnalog(FAKE_PIN, SPItransfer(pin, 0));
-      }
+  if (isSPIActiv){
+      Firmata.sendAnalog(FAKE_PIN, Firmata.SPItransfer(SS, 0));
   }
   
   
