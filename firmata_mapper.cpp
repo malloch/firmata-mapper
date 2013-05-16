@@ -1616,7 +1616,17 @@ void MyFrame::OnAbout( wxCommandEvent &event )
 void MyFrame::OnQuit( wxCommandEvent &event )
 {
   //TODO: ask if changes have to be saved
-    if (dev)
+  cout << "on quit" << endl;
+  //wxMessageDialog *quitDialog = new wxMessageDialog (scroll, -1, _("Do you want to save the configuration ?"), _("pouet"), wxYES_NO, wxPoint(-1, -1));
+  wxMessageDialog quitDialog( this, _("Do you want to save the configuration ?"), wxT("Save ?"), wxYES_NO );
+  int result = quitDialog.ShowModal();
+
+  if (result == wxID_YES){
+     wxCommandEvent cmd = wxCommandEvent(-1, -1);
+    OnSaveFile(cmd);
+  }
+  //quitDialog->GetValue
+  if (dev)
         mdev_free(dev);
     dev = 0;
     Close( true );
