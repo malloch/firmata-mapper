@@ -255,8 +255,18 @@ void MyFrame::init_data(void)
 	tx_count = rx_count = 0;
 	firmata_name = _("");
 	
-	wxFrame *addPinFrame = new wxFrame(scroll, PIN_FRAME_ID, _("add pin"), wxPoint(500,100), wxDefaultSize, wxSTAY_ON_TOP);
-	wxStaticText *warning = new wxStaticText(addPinFrame, WARNING_ID, _("") );
+	init_add_pin_frame();
+
+	//isProgramLoaded = false;
+	UpdateStatus();
+	//new_size();
+	rebuild_grid(); 
+}
+
+void MyFrame::init_add_pin_frame(void)
+{
+  	wxFrame *addPinFrame = new wxFrame(scroll, PIN_FRAME_ID, _("add pin"), wxPoint(500,100), wxDefaultSize, wxSTAY_ON_TOP);
+	wxStaticText *warning = new wxStaticText(addPinFrame, WARNING_ID,  _(""), wxPoint(305, 50), wxSize(-1,-1), wxALIGN_CENTRE, _(""));
 	wxTextCtrl *nameTextCtrl = new wxTextCtrl(addPinFrame, NAME_ID, _(""), wxPoint(200,50), wxSize(100, 25));
 	wxTextCtrl *unitTextCtrl = new wxTextCtrl(addPinFrame, UNIT_ID, _(""), wxPoint(200,80), wxSize(100, 25));
 	wxChoice *modesChoice = new wxChoice(addPinFrame, MODE_ID, wxPoint(200, 110), wxSize(-1, -1), NULL);
@@ -278,13 +288,11 @@ void MyFrame::init_data(void)
 	wxButton *OKButton = new wxButton(addPinFrame, 7250, _(" OK "), wxPoint(100, 200), wxDefaultSize);
 	wxButton *CancelButton = new wxButton(addPinFrame, 7251, _(" Cancel "), wxPoint(200, 200), \
 					  wxDefaultSize);
-
+	
+	nameTextCtrl->SetMaxLength(SIZE_MAX_NAME);
+	unitTextCtrl->SetMaxLength(SIZE_MAX_UNIT);
 	addPinFrame->Show(false);
 
-	//isProgramLoaded = false;
-	UpdateStatus();
-	//new_size();
-	rebuild_grid(); 
 }
 
 void MyFrame::new_size(void)
@@ -517,7 +525,7 @@ void MyFrame::delete_pin(int pin)
 	 pin_info[i].grid_row --;
      } 
      pin_info[pin].grid_row = 0;
-     //grid_count--;
+     grid_count--;
      rebuild_grid(); 
 }
 
@@ -877,8 +885,8 @@ void MyFrame::OnAddPin(wxCommandEvent &event)
       nameTextCtrl->Destroy();
     */
     //nameTextCtrl = new wxTextCtrl(addPinFrame, NAME_ID, _(""), wxPoint(200,50), wxSize(100, 25));
-    nameTextCtrl->SetLabel(_(""));
-    nameTextCtrl->SetMaxLength(SIZE_MAX_NAME);
+    nameTextCtrl->SetValue(_(""));
+    //nameTextCtrl->SetMaxLength(SIZE_MAX_NAME);
     
 
     //unit    
@@ -888,8 +896,8 @@ void MyFrame::OnAddPin(wxCommandEvent &event)
     /*if (unitTextCtrl !=NULL)
       unitTextCtrl->Destroy();
       unitTextCtrl = new wxTextCtrl(addPinFrame, UNIT_ID, _(""), wxPoint(200,80), wxSize(100, 25));*/
-    unitTextCtrl->SetLabel(_(""));
-    unitTextCtrl->SetMaxLength(SIZE_MAX_UNIT);
+    unitTextCtrl->SetValue(_(""));
+    //unitTextCtrl->SetMaxLength(SIZE_MAX_UNIT);
     
     
      //list of available mode
@@ -1028,12 +1036,14 @@ void MyFrame::OnButton(wxCommandEvent &event)
     }else { 
       
       wxStaticText *warning = (wxStaticText*)FindWindowById(WARNING_ID, addPinFrame);
-      if (warning != NULL)
-	warning->Destroy();
+      /*if (warning != NULL)
+	warning->Destroy();*/
       if (!isAFreeName)
-	warning = new wxStaticText(addPinFrame, WARNING_ID,  _("already exist"), wxPoint(305, 50), wxSize(-1,-1), wxALIGN_CENTRE, _("existingName"));
+	warning->SetLabel( _("already exist"));
+      //warning = new wxStaticText(addPinFrame, WARNING_ID,  _("already exist"), wxPoint(305, 50), wxSize(-1,-1), wxALIGN_CENTRE, _("existingName"));
       if (wx2std(nameTextCtrl->GetValue())=="")
-	warning = new wxStaticText(addPinFrame, WARNING_ID,  _("enter a name"), wxPoint(305, 50), wxSize(-1,-1), wxALIGN_CENTRE, _("noName"));
+	warning->SetLabel(_("enter a name"));
+      //warning = new wxStaticText(addPinFrame, WARNING_ID,  _("enter a name"), wxPoint(305, 50), wxSize(-1,-1), wxALIGN_CENTRE, _("noName"));
     }
   } else { //delete button
     int id = event.GetId();

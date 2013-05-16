@@ -48,6 +48,7 @@ private:
 	uint8_t parse_buf[4096];
 private:
 	void init_data(void);
+	void init_add_pin_frame(void);
 	void new_size(void);
 	void rebuild_grid();
 	void add_item_to_grid(int row, int col, wxWindow *item);
