@@ -64,6 +64,7 @@ wxMenu *file_menu;
 wxMenu *signal_menu;
 wxMenu *EEPROM_menu;
 bool isPinChosed = false;
+bool isConfigurationSaved = false;
   
 /*wxFrame *addPinFrame; //TODO: better do it by checking the window ID
 wxTextCtrl *nameTextCtrl;
@@ -982,6 +983,10 @@ void MyFrame::OnAddPin(wxCommandEvent &event)
     if (pinsChoice !=NULL)
       pinsChoice->Destroy();
     pinsChoice = new wxChoice(addPinFrame, PIN_ID, wxPoint(200, 140),  wxSize(-1, -1), pinList);
+    
+    wxStaticText *warning = (wxStaticText*)FindWindowById(WARNING_ID, addPinFrame);
+    warning->SetLabel( _(""));
+     
         
     addPinFrame->Show(true);
   } else {
@@ -1049,17 +1054,16 @@ void MyFrame::OnButton(wxCommandEvent &event)
       pin_info[pin].unit = wx2std(unitTextCtrl->GetValue());
   
       add_pin(pin);
+      
+      isConfigurationSaved = false;
     }else { 
       
       wxStaticText *warning = (wxStaticText*)FindWindowById(WARNING_ID, addPinFrame);
-      /*if (warning != NULL)
-	warning->Destroy();*/
+
       if (!isAFreeName)
 	warning->SetLabel( _("already exist"));
-      //warning = new wxStaticText(addPinFrame, WARNING_ID,  _("already exist"), wxPoint(305, 50), wxSize(-1,-1), wxALIGN_CENTRE, _("existingName"));
       if (wx2std(nameTextCtrl->GetValue())=="")
 	warning->SetLabel(_("enter a name"));
-      //warning = new wxStaticText(addPinFrame, WARNING_ID,  _("enter a name"), wxPoint(305, 50), wxSize(-1,-1), wxALIGN_CENTRE, _("noName"));
     }
   } else { //delete button
     int id = event.GetId();
@@ -1106,21 +1110,18 @@ void MyFrame::sendName(int pin)
     for (int i=0; i<SIZE_MAX_UNIT; i++){
       sigunit[i]='\0';
     }
+    
+    //TODO: make it in one step 
+    for (int i=0; i<(int)(pin_info[pin].name).length(); i++)
+      signame[i]=(pin_info[pin].name)[i]; 
+    for (int i=0; i<(int)(pin_info[pin].unit).length(); i++)
+      sigunit[i]=(pin_info[pin].unit)[i];
 
-    /*if ((pin_info[pin].name)==""){
-      pin_info[pin].init = false;
-    } else {*/
-    //pin_info[pin].init = true;
-      for (int i=0; i<(int)(pin_info[pin].name).length(); i++)
-	  signame[i]=(pin_info[pin].name)[i];
-      for (int i=0; i<(int)(pin_info[pin].unit).length(); i++)
-	sigunit[i]=(pin_info[pin].unit)[i];
-      //}
     for (int i = 0; i < SIZE_MAX_NAME ; i++)
-	buf[i+2] = (uint8_t)signame[i];
+      buf[i+2] = (uint8_t)signame[i];
     for (int i = 0; i < SIZE_MAX_UNIT ; i++)
-	buf[i+2+SIZE_MAX_NAME] = (uint8_t)sigunit[i];
-   
+      buf[i+2+SIZE_MAX_NAME] = (uint8_t)sigunit[i];
+    
     port.Write(buf, SIZE_MAX_NAME+SIZE_MAX_UNIT+2);
     tx_count += SIZE_MAX_NAME+SIZE_MAX_UNIT+2; 
 }
@@ -1184,6 +1185,7 @@ void MyFrame::OnPort(wxCommandEvent &event)
   grid_count = 2;
   dev = 0;
 
+  //disable menu options which can't work without a microcontroller plugged
   file_menu->Enable( LOAD_FILE_ID, false);
   file_menu->Enable( SAVE_FILE_ID, false);
   EEPROM_menu->Enable( WRITE_EEPROM_ID, false);
@@ -1206,6 +1208,7 @@ void MyFrame::OnPort(wxCommandEvent &event)
     parse_command_len = 0;
     UpdateStatus();
     
+    //enable menu options
     file_menu->Enable( LOAD_FILE_ID, true);
     file_menu->Enable( SAVE_FILE_ID, true);
     EEPROM_menu->Enable( WRITE_EEPROM_ID, true);
@@ -1313,10 +1316,10 @@ void MyFrame::Parse(const uint8_t *buf, int len)
     } else if (*p == EEPROM_LOADING) {
       parse_command_len = SIZE_MAX_NAME+SIZE_MAX_UNIT+3; //command + pin + name + mode 
       parse_count = 0;
-    } /*else if (*p == RECEIVE_NAME){
+    } else if (*p == RECEIVE_NAME){
       parse_command_len = SIZE_MAX_NAME+2;
       parse_count = 0;
-      } */
+    } 
     if (parse_count < (int)sizeof(parse_buf)) 
       parse_buf[parse_count++] = *p;
     if (parse_count == parse_command_len) {
@@ -1546,6 +1549,7 @@ void MyFrame::OnSaveFile( wxCommandEvent&event)
     }
     file << "-1 -1 -1" << endl;
     file.close();
+    isConfigurationSaved = true;
   }
 }
 //Return the pin number associated with the place on the grid
@@ -1631,17 +1635,6 @@ void MyFrame::OnAbout( wxCommandEvent &event )
 
 void MyFrame::OnQuit( wxCommandEvent &event )
 {
-  //TODO: ask if changes have to be saved
-  cout << "on quit" << endl;
-  //wxMessageDialog *quitDialog = new wxMessageDialog (scroll, -1, _("Do you want to save the configuration ?"), _("pouet"), wxYES_NO, wxPoint(-1, -1));
-  wxMessageDialog quitDialog( this, _("Do you want to save the configuration ?"), wxT("Save ?"), wxYES_NO );
-  int result = quitDialog.ShowModal();
-
-  if (result == wxID_YES){
-     wxCommandEvent cmd = wxCommandEvent(-1, -1);
-    OnSaveFile(cmd);
-  }
-  //quitDialog->GetValue
   if (dev)
         mdev_free(dev);
     dev = 0;
@@ -1650,10 +1643,17 @@ void MyFrame::OnQuit( wxCommandEvent &event )
 
 void MyFrame::OnCloseWindow( wxCloseEvent &event )
 {
+  if (!isConfigurationSaved){
+    wxMessageDialog quitDialog( this, _("Do you want to save the configuration ?"), wxT(""), wxYES_NO );
+    int result = quitDialog.ShowModal();
+    if (result == wxID_YES){
+      wxCommandEvent cmd = wxCommandEvent(-1, -1);
+      OnSaveFile(cmd);
+    }
+  }
     if (dev)
         mdev_free(dev);
     dev = 0;
-    // if ! saved changes -> return
     Destroy();
 }
 
