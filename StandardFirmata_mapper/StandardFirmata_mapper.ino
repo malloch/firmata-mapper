@@ -425,7 +425,7 @@ void systemResetCallback()
     reportPINs[i] = false;      // by default, reporting off
     portConfigInputs[i] = 0;	// until activated
     previousPINs[i] = 0;
-  }*/
+  }*/eeprom
   // pins with analog capability default to analog input
   // otherwise, pins default to digital output
   
