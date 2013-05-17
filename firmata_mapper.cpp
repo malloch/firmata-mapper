@@ -1000,6 +1000,7 @@ void MyFrame::OnButton(wxCommandEvent &event)
     this->Enable();
   }
   if (event.GetId()==7250){ // ok button
+    bool areSameType = false;
     bool isAFreeName = true;
     wxTextCtrl *nameTextCtrl = (wxTextCtrl *)FindWindowById(NAME_ID, NULL);
     wxTextCtrl *unitTextCtrl = (wxTextCtrl *)FindWindowById(UNIT_ID, NULL);
@@ -1007,7 +1008,22 @@ void MyFrame::OnButton(wxCommandEvent &event)
     wxChoice *pinsChoice = (wxChoice *) FindWindowById(PIN_ID, NULL);
     for (int i = 0; i < 128; i++)
       if (pin_info[i].grid_row!=0 && pin_info[i].name == wx2std(nameTextCtrl->GetValue()))
-	isAFreeName = false;
+	
+	//check if the two signals are both input or output 
+	//( an input and an output can have the same name, but not two inputs or two outputs)
+	if (((pin_info[i].mode == MODE_INPUT				\
+	      || pin_info[i].mode == MODE_ANALOG)			\
+	     && (wx2std(modesChoice->GetStringSelection()) == "Input"	\
+		 || wx2std(modesChoice->GetStringSelection())=="Analog")) \
+	    || ((pin_info[i].mode == MODE_SERVO				\
+		 || pin_info[i].mode == MODE_OUTPUT			\
+		 || pin_info[i].mode ==MODE_PWM)			\
+		&& ( wx2std(modesChoice->GetStringSelection())=="Servo"	\
+		     || wx2std(modesChoice->GetStringSelection())=="PWM" \
+		     || wx2std(modesChoice->GetStringSelection())=="Output"))){
+	  isAFreeName = false;
+	}
+    
     if (wx2std(nameTextCtrl->GetValue())!="" && isAFreeName){
       isPinChosed = true;
       addPinFrame->Show(false);
