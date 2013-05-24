@@ -1050,7 +1050,7 @@ void MyFrame::OnIdle(wxIdleEvent &event)
     r = port.Input_wait(40);
     if (r > 0) {
       r = port.Read(buf, sizeof(buf));
-      cout <<  "buf : " << buf << endl;
+      //      cout <<  "buf : " << buf << endl;
       if (r < 0) {
 	// error
 	return;
@@ -1329,7 +1329,7 @@ void MyFrame::OnSaveFile( wxCommandEvent&event)
       else
 	continue;
     }
-    file << "-1 -1 -1" << endl;
+    file << "-1" << endl;
     file.close();
     isConfigurationSaved = true;
   }

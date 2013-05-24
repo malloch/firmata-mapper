@@ -31,6 +31,6 @@ Warnings :
       	   do not select the file you want to replace but write its name 
       	   in the text control without the extension ".mapconf"
     - Do not use the RESET button of the Arduino
-
+    - Do not use a save name of only one character, or bigger that 9 characters
 
 Feel free to contact me at julie.rene2@mail.mcgill.ca if you find some bugs !
