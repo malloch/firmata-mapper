@@ -1,4 +1,4 @@
-/*
+onidke/*
  * Firmata is a generic protocol for communicating with microcontrollers
  * from software on a host computer. It is intended to work with
  * any host computer software package.
@@ -43,7 +43,7 @@
 
 #define REGISTER_NOT_SPECIFIED -1
 
-#define FAKE_PIN 14
+#define FAKE_PIN 4
 
 /*==============================================================================
  * GLOBAL VARIABLES
@@ -75,6 +75,21 @@ int pinRange;
 Servo servos[MAX_SERVOS];
 
 boolean isSPIActiv = false;
+
+
+
+//define pins for shift registers
+int latchPin = 8;
+int dataPin = 9;
+int clockPin = 7;
+byte tapCode = 3;
+byte touch[6] = {0, 0, 0, 0, 0, 0};
+unsigned long touchInterval = 1;
+unsigned long now = 0;
+unsigned long touched = 0;
+byte touchCode = 1;
+boolean isFirstLoop;
+
 /*==============================================================================
  * FUNCTIONS
  *============================================================================*/
@@ -475,12 +490,13 @@ void setup()
   Firmata.attach(START_SYSEX, sysexCallback);
   Firmata.attach(SYSTEM_RESET, systemResetCallback);
   Firmata.attach(EEPROM_WRITING, EEPROMWritingCallback);  
-  
-  
-  for (int i=0; i<TOTAL_PINS; i++)
-    for (int j=0; j<SIZE_MAX_NAME;j++)
+
+  for (int i=0; i<TOTAL_PINS; i++){
+    for (int j=0; j<SIZE_MAX_NAME;j++){
         names[i][j] = 0;
-       
+     }
+  }
+      
   for (byte i=0; i < TOTAL_PORTS; i++) {
     reportPINs[i] = false;      // by default, reporting off
     portConfigInputs[i] = 0;	// until activated
@@ -490,11 +506,19 @@ void setup()
   pinRange=0;
   Firmata.begin(57600);
   systemResetCallback();  // reset to default config
+  
+  pinMode(latchPin, OUTPUT);
+  pinMode(clockPin, OUTPUT); 
+  pinMode(dataPin, INPUT);
 
+
+  
+ // Firmata.sendPinName(FAKE_PIN, "R");
   
   if (isSPIActiv){
      Firmata.sendPinName(FAKE_PIN, "name test");
   } 
+  Firmata.sendPinName(FAKE_PIN, "Ra");
 }
 
 /*==============================================================================
@@ -502,8 +526,13 @@ void setup()
  *============================================================================*/
 void loop() 
 {
-
   byte pin, analogPin;
+  //delay(2000);
+  //Serial.print("\nloop\n");
+ /* Serial.print("\n total pin : ");
+    Serial.print(TOTAL_PINS);
+      Serial.print("\n size max : ");
+    Serial.print(SIZE_MAX_NAME);*/
   
   /* DIGITALREAD - as fast as possible, check for changes and output them to the
    * FTDI buffer using Serial.print()  */
@@ -518,12 +547,12 @@ void loop()
   /* SEND FTDI WRITE BUFFER - make sure that the FTDI buffer doesn't go over
    * 60 bytes. use a timer to sending an event character every 4 ms to
    * trigger the buffer to dump. */
-
+  
   currentMillis = millis();
   if (currentMillis - previousMillis > samplingInterval) {
     previousMillis += samplingInterval;
     /* ANALOGREAD - do all analogReads() at the configured sampling interval */
-  for(pin=0; pin<TOTAL_PINS; pin++) {
+    for(pin=0; pin<TOTAL_PINS; pin++) {
       if (IS_PIN_ANALOG(pin) && pinConfig[pin] == ANALOG) {
         analogPin = PIN_TO_ANALOG(pin);
         if (analogInputsToReport & (1 << analogPin)) {
@@ -537,8 +566,55 @@ void loop()
   if (isSPIActiv){
       Firmata.sendAnalog(FAKE_PIN, Firmata.SPItransfer(SS, 0));
   }
-   
+  
 
-  
-  
+  now = millis();
+    Firmata.sendPinName(FAKE_PIN, "Ra");
+    //check priority data: Touch data only for now
+    if ((now - touched) > touchInterval) { // throttles priority data, maybe unnecessary?
+    if(readTouch()) {
+        Serial.write(PROTOCOL_DATA);
+        Serial.write(FAKE_PIN);
+         // Serial.print("\n\n data : ");
+        for (int t=0; t<6; t++) {    
+              Serial.write(touch[t]); 
+        }
+        touched = now;
+      } 
+    } 
+}
+
+
+
+boolean readTouch() {
+  boolean changed = 0;
+  digitalWrite(latchPin,0);  //set latch pin to 0 to transmit data serially  
+  for (int t=0; t<6; t++) {
+    byte temp = shiftIn(dataPin, clockPin);  //Read digital data
+    if (temp != touch[t]) {
+      changed = 1;
+      touch[t] = temp;
+    }
+  }
+  digitalWrite(latchPin,1);  //set latch pin to 1 to collect parallel data
+  return changed;
+}
+
+
+byte shiftIn(int myDataPin, int myClockPin) { 
+  int i;
+  int temp = 0;
+  byte myDataIn = 0;
+  for (i=7; i>=0; i--)
+  {
+    digitalWrite(myClockPin, 0);
+    temp = digitalRead(myDataPin);
+    if (temp) {
+      myDataIn = myDataIn | (1 << i);
+    }
+    digitalWrite(myClockPin, 1);
+  }
+ //Serial.print("\ndata : ");
+  //Serial.print(myDataIn);  
+  return myDataIn;
 }
