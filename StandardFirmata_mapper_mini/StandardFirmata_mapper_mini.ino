@@ -1,4 +1,4 @@
-onidke/*
+/*
  * Firmata is a generic protocol for communicating with microcontrollers
  * from software on a host computer. It is intended to work with
  * any host computer software package.
@@ -88,7 +88,7 @@ unsigned long touchInterval = 1;
 unsigned long now = 0;
 unsigned long touched = 0;
 byte touchCode = 1;
-boolean isFirstLoop;
+boolean isFirstUse;
 
 /*==============================================================================
  * FUNCTIONS
@@ -512,13 +512,10 @@ void setup()
   pinMode(dataPin, INPUT);
 
 
-  
- // Firmata.sendPinName(FAKE_PIN, "R");
-  
-  if (isSPIActiv){
-     Firmata.sendPinName(FAKE_PIN, "name test");
-  } 
+ 
+  isFirstUse = true;
   Firmata.sendPinName(FAKE_PIN, "Ra");
+  isFirstUse = false;
 }
 
 /*==============================================================================
@@ -527,12 +524,6 @@ void setup()
 void loop() 
 {
   byte pin, analogPin;
-  //delay(2000);
-  //Serial.print("\nloop\n");
- /* Serial.print("\n total pin : ");
-    Serial.print(TOTAL_PINS);
-      Serial.print("\n size max : ");
-    Serial.print(SIZE_MAX_NAME);*/
   
   /* DIGITALREAD - as fast as possible, check for changes and output them to the
    * FTDI buffer using Serial.print()  */
@@ -562,26 +553,23 @@ void loop()
     }
   }
 
-  //SPI management 
-  if (isSPIActiv){
-      Firmata.sendAnalog(FAKE_PIN, Firmata.SPItransfer(SS, 0));
-  }
-  
-
   now = millis();
+  
+  if (isFirstUse){
     Firmata.sendPinName(FAKE_PIN, "Ra");
-    //check priority data: Touch data only for now
-    if ((now - touched) > touchInterval) { // throttles priority data, maybe unnecessary?
-    if(readTouch()) {
-        Serial.write(PROTOCOL_DATA);
-        Serial.write(FAKE_PIN);
-         // Serial.print("\n\n data : ");
-        for (int t=0; t<6; t++) {    
+    isFirstUse = false;
+  }
+    
+  //check priority data: Touch data only for now
+  if ((now - touched) > touchInterval) { // throttles priority data, maybe unnecessary?
+  if(readTouch()) {
+      Serial.write(TSTICK_DATA);
+      Serial.write(FAKE_PIN);
+      for (int t=0; t<6; t++) 
               Serial.write(touch[t]); 
-        }
-        touched = now;
+      touched = now;
       } 
-    } 
+  } 
 }
 
 
@@ -614,7 +602,5 @@ byte shiftIn(int myDataPin, int myClockPin) {
     }
     digitalWrite(myClockPin, 1);
   }
- //Serial.print("\ndata : ");
-  //Serial.print(myDataIn);  
   return myDataIn;
 }

@@ -20,17 +20,19 @@
 
 
 #if defined(__GNUG__) && !defined(NO_GCC_PRAGMA)
-#pragma implementation "firmata_mapper.h"
+#pragma implementation "firmata_mapperRPi.h"
 #endif
 
 #include "wx/wxprec.h"
-#include "firmata_mapper.h"
-#include "serial.h"
+#include "firmata_mapperRPi.h"
 #include "mapper/mapper.h"
 #include <iostream>
 #include <fstream>
 #include <string>
 
+extern "C" {
+#include <wiringPi.h>
+}  
 
 using namespace std;
 
@@ -39,8 +41,6 @@ using namespace std;
 // MyFrame
 //------------------------------------------------------------------------------
 
-Serial port;
-bool isProgramLoaded;
 mapper_device dev = 0;
 mapper_timetag_t tt;
 int needs_update = 0;
@@ -50,18 +50,15 @@ typedef struct {
   uint64_t supported_modes;
   uint32_t value;
   mapper_signal sig;
-  string name; 
+  string name;
   string unit;
   int grid_row;//place of the signal in the interface grid
 } pin_t;
 string names[128];
 pin_t pin_info[128];
-wxString firmata_name;
 unsigned int rx_count, tx_count;
-wxMenu *port_menu;
 wxMenu *file_menu;
 wxMenu *signal_menu;
-wxMenu *EEPROM_menu;
 bool isPinChosed = false;
 bool isConfigurationSaved = false;
 
@@ -73,31 +70,12 @@ bool isConfigurationSaved = false;
 #define MODE_SHIFT    0x05
 //#define MODE_I2C      0x06
 
-#define START_SYSEX             0xF0 // start a MIDI Sysex message
-#define END_SYSEX               0xF7 // end a MIDI Sysex message
-#define PIN_MODE_QUERY          0x72 // ask for current and supported pin modes
-#define PIN_MODE_RESPONSE       0x73 // reply with current and supported pin modes
-#define PIN_STATE_QUERY         0x6D
-#define PIN_STATE_RESPONSE      0x6E
-#define CAPABILITY_QUERY        0x6B
-#define CAPABILITY_RESPONSE     0x6C
-#define ANALOG_MAPPING_QUERY    0x69
-#define ANALOG_MAPPING_RESPONSE 0x6A
-#define REPORT_FIRMWARE         0x79 // report name and version of the firmware
-#define EEPROM_LOADING          0x0B
-#define RECEIVE_NAME            0x0C
-#define TSTICK_DATA             0x0D
-
-
-#define SIZE_MAX_NAME           3
+#define SIZE_MAX_NAME           12
 #define SIZE_MAX_UNIT           5
 
 #define SAVE_FILE_ID            6323
 #define LOAD_FILE_ID            6324
 #define ADD_PIN_ID              6325
-#define WRITE_EEPROM_ID         6326
-#define CLEAR_EEPROM_ID         6327
-#define LOAD_EEPROM_ID          6328
 #define MODE_CHANGE             6329
 #define MODE_TEMP_CHANGE        6330
 
@@ -111,21 +89,15 @@ bool isConfigurationSaved = false;
 BEGIN_EVENT_TABLE(MyFrame,wxFrame)
         EVT_MENU(SAVE_FILE_ID, MyFrame::OnSaveFile)
         EVT_MENU(LOAD_FILE_ID, MyFrame::OnLoadFile)
-        EVT_MENU(WRITE_EEPROM_ID, MyFrame::OnEEPROM) 
-//EVT_MENU(CLEAR_EEPROM_ID, MyFrame::OnEEPROM) 
-        EVT_MENU(LOAD_EEPROM_ID, MyFrame::OnEEPROM)
         EVT_MENU(ADD_PIN_ID, MyFrame::OnAddPin)
 	EVT_MENU(wxID_ABOUT, MyFrame::OnAbout)
 	EVT_MENU(wxID_EXIT, MyFrame::OnQuit)
-	EVT_MENU_RANGE(9000, 9999, MyFrame::OnPort)
         EVT_CHOICE(-1, MyFrame::OnModeChange)
         EVT_CHOICE(MODE_TEMP_CHANGE, MyFrame::OnModeChange)
         EVT_IDLE(MyFrame::OnIdle)
         EVT_TOGGLEBUTTON(-1, MyFrame::OnToggleButton)
         EVT_BUTTON(-1, MyFrame::OnButton)
 	EVT_SCROLL_THUMBTRACK(MyFrame::OnSliderDrag)
-	EVT_MENU_OPEN(MyMenu::OnShowPortList)
-	EVT_MENU_HIGHLIGHT(-1, MyMenu::OnHighlight)
 	EVT_CLOSE(MyFrame::OnCloseWindow)
 	//EVT_SIZE(MyFrame::OnSize)
 END_EVENT_TABLE()
@@ -138,37 +110,19 @@ MyFrame::MyFrame( wxWindow *parent, wxWindowID id, const wxString &title,
 	#ifdef LOG_MSG_TO_WINDOW
 	wxLog::SetActiveTarget(new wxLogWindow(this, _("Debug Messages")));
 	#endif
-	port.Set_baud(57600);
 	wxMenuBar *menubar = new wxMenuBar;
 	wxMenu *menu = new wxMenu;
 	menu->Append( SAVE_FILE_ID, _("Save configuration"), _(""));
-	menu->Enable( SAVE_FILE_ID, false);
 	menu->Append( LOAD_FILE_ID, _("Load configuration"), _(""));
-	menu->Enable( LOAD_FILE_ID, false);
 	menu->Append( wxID_ABOUT, _("About"), _(""));
 	menu->Append( wxID_EXIT, _("Quit"), _(""));
 	menubar->Append(menu, _("File"));
 	file_menu = menu;
 
 	menu = new wxMenu;
-	menubar->Append(menu, _("Port"));
-	port_menu = menu;
-
-	menu = new wxMenu;
 	menu->Append(ADD_PIN_ID, _("Add a signal"));
-	menu->Enable( ADD_PIN_ID, false);
 	menubar->Append( menu, _("Signal manager"));
 	signal_menu = menu;
-
-	menu = new wxMenu;
-	menu->Append( WRITE_EEPROM_ID, _("Write on EEPROM"));
-	menu->Enable( WRITE_EEPROM_ID, false);
-	menu->Append( LOAD_EEPROM_ID, _("Load EEPROM"));
-	menu->Enable( LOAD_EEPROM_ID, false);
-	//menu->Append( CLEAR_EEPROM_ID, _("Clear EEPROM"));
-	//menu->Enable( CLEAR_EEPROM_ID, false);
-	menubar->Append(menu, _("EEPROM"));
-	EEPROM_menu = menu;
 	
 	SetMenuBar(menubar);
 	CreateStatusBar(1);
@@ -221,9 +175,6 @@ MyFrame::MyFrame( wxWindow *parent, wxWindowID id, const wxString &title,
 
 void MyFrame::init_data(void)
 {
-  //grid->Clear(true);
-  //	grid->SetRows(0);
-  //	grid->SetCols(5);
 	for (int i=0; i < 128; i++) {
  		pin_info[i].mode = 255;
 		pin_info[i].analog_channel = 127;
@@ -233,11 +184,23 @@ void MyFrame::init_data(void)
 		pin_info[i].name = "";
 		pin_info[i].grid_row = 0;
 	}
+
+	pin_info[0].supported_modes=0b00011;
+	pin_info[1].supported_modes=0b11011;
+	pin_info[2].supported_modes=0b00011;
+	pin_info[3].supported_modes=0b00011;
+	pin_info[4].supported_modes=0b00011;
+	pin_info[5].supported_modes=0b00011;
+	pin_info[6].supported_modes=0b00011;
+	pin_info[7].supported_modes=0b00011;
+
 	tx_count = rx_count = 0;
-	firmata_name = _("");
 	
 	init_add_pin_frame();
 
+	wiringPiSetup();
+	wxWakeUpIdle();
+	dev = mdev_new("Firmata", 9000, 0);
 	UpdateStatus();
 	//new_size();
 	rebuild_grid(); 
@@ -249,8 +212,8 @@ void MyFrame::init_add_pin_frame(void)
 	wxStaticText *warning = new wxStaticText(addPinFrame, WARNING_ID,  _(""), wxPoint(305, 50), wxSize(-1,-1), wxALIGN_CENTRE, _(""));
 	wxTextCtrl *nameTextCtrl = new wxTextCtrl(addPinFrame, NAME_ID, _(""), wxPoint(200,50), wxSize(100, 25));
 	wxTextCtrl *unitTextCtrl = new wxTextCtrl(addPinFrame, UNIT_ID, _(""), wxPoint(200,80), wxSize(100, 25));
-	wxChoice *modesChoice = new wxChoice(addPinFrame, MODE_ID, wxPoint(200, 110), wxSize(-1, -1), NULL);
-	wxChoice *pinsChoice = new wxChoice(addPinFrame, PIN_ID, wxPoint(200, 110), wxSize(-1, -1), NULL);
+	wxChoice *modesChoice = new wxChoice(addPinFrame, MODE_ID, wxPoint(200, 110), wxSize(-1, -1));
+	wxChoice *pinsChoice = new wxChoice(addPinFrame, PIN_ID, wxPoint(200, 110), wxSize(-1, -1));
 	wxStaticText *staticName = new wxStaticText(addPinFrame, -1, _("name : "), wxPoint(70, 50), \
 						    wxSize(-1,-1), wxALIGN_CENTRE, _("staticText"));
 	
@@ -269,8 +232,8 @@ void MyFrame::init_add_pin_frame(void)
 	wxButton *CancelButton = new wxButton(addPinFrame, 7251, _(" Cancel "), wxPoint(200, 200), \
 					  wxDefaultSize);
 	
-	nameTextCtrl->SetMaxLength(SIZE_MAX_NAME-1);
-	unitTextCtrl->SetMaxLength(SIZE_MAX_UNIT-1);
+	nameTextCtrl->SetMaxLength(SIZE_MAX_NAME);
+	unitTextCtrl->SetMaxLength(SIZE_MAX_UNIT);
 	addPinFrame->Show(false);
 
 }
@@ -330,7 +293,6 @@ void MyFrame::add_pin(int pin)
 	  (scroll, 15000+pin, *str , wxDefaultPosition, wxSize(-1,-1), wxALIGN_CENTER, _("staticText"));
 	add_item_to_grid(pin_info[pin].grid_row, 0, wxName);			
 	pin_info[pin].name = names[pin];
-
 	//mode 
 	wxStaticText *modes = new wxStaticText(scroll, -1, _("") , wxDefaultPosition, wxSize(-1,-1));
 	if (pin_info[pin].mode == MODE_INPUT) 	  
@@ -345,8 +307,7 @@ void MyFrame::add_pin(int pin)
 	  modes->SetLabel(_("Servo"));
 
 	add_item_to_grid(pin_info[pin].grid_row, 1, modes); 
-	
-	
+	 
 	// create the 3rd column control for this mode
 	if (pin_info[pin].mode == MODE_OUTPUT) {
 	  wxToggleButton *button = new  wxToggleButton(scroll, 7000+pin, 
@@ -376,7 +337,7 @@ void MyFrame::add_pin(int pin)
 	  slider->SetMinSize(size);
 	  add_item_to_grid(pin_info[pin].grid_row, 2, slider);
 	}
-	
+
 	//delete button
 	wxButton *deleteButton = new wxButton(scroll, 7500+pin, _("delete"));
 	add_item_to_grid(pin_info[pin].grid_row, 3, deleteButton);
@@ -389,13 +350,7 @@ void MyFrame::add_pin(int pin)
 }
 
 void MyFrame::create_signal(int pin){
-  //send the mode to the firmware
-    uint8_t buf[SIZE_MAX_NAME+3];
-    buf[0] = 0xF4;
-    buf[1] = pin;
-    buf[2] = pin_info[pin].mode;    
-    port.Write(buf, 3);
-    tx_count += 3;  
+  
     pin_info[pin].value = 0;
 
     //to delete the corresponding signal if it already exist
@@ -406,16 +361,14 @@ void MyFrame::create_signal(int pin){
       else 
 	mdev_remove_input(dev, pin_info[pin].sig);
     }
-
     //name mangement
     char signame[SIZE_MAX_NAME];
-    for (int i=0; i<SIZE_MAX_NAME; i++){
+    for (int i=0; i<SIZE_MAX_NAME; i++)
       signame[i]=(pin_info[pin].name)[i];
-    }
+
     char sigunit[SIZE_MAX_UNIT];
     for (int i=0; i<SIZE_MAX_UNIT; i++)
       sigunit[i]=(pin_info[pin].unit)[i];
-    
     //to create the new signal with the right mode
     int min = 0, max;
     switch (pin_info[pin].mode) {
@@ -426,7 +379,7 @@ void MyFrame::create_signal(int pin){
     case MODE_OUTPUT:
       max = 1;
       pin_info[pin].sig = mdev_add_input(dev, signame, 1, 'i', sigunit, &min, &max,
-			 		 MapperSignalHandler, (void *)pin);
+      		 		 MapperSignalHandler, (void *)pin);
       break;
     case MODE_ANALOG:
       max = 1023;
@@ -502,15 +455,16 @@ wxString std2wx(std::string s){
 
 void MyFrame::UpdateStatus(void)
 {
+  //TODO: update GPIO info status
   wxString status;
-  if (port.Is_open()/* && isProgramLoaded*/)
-    status.Printf(port.get_name() + _("    Tx:%u Rx:%u     ") + firmata_name, tx_count, rx_count );
+  //  if (port.Is_open() && isProgramLoaded)
+  //    status.Printf(port.get_name() + _("    Tx:%u Rx:%u     ") + firmata_name, tx_count, rx_count );
   //else if (port.Is_open() && !isProgramLoaded)
     //TODO: find a way to define if an operational firmware is loaded on the Arduino
     //status = _("Firmata program not loaded on the arduino");
-  else 
-    status = _("Please choose serial port");
-  SetStatusText(status);
+    //  else 
+    //   status = _("Please choose serial port");
+  //  SetStatusText(status);
 }	
 
 void MyFrame::OnModeChange(wxCommandEvent &event)
@@ -564,8 +518,8 @@ void MyFrame::MapperSignalHandler(mapper_signal msig, mapper_db_signal props,
     if (!value) return;
     int *i = (int *)value;
     int val = i[0];
-    //int id;
-    uint8_t buf[3];
+    //    int id;
+    //  uint8_t buf[3];
     switch (pin_info[pin].mode) {
         case MODE_OUTPUT:
         {
@@ -574,6 +528,11 @@ void MyFrame::MapperSignalHandler(mapper_signal msig, mapper_db_signal props,
             //wxToggleButton *button = (wxToggleButton *)FindWindowById(id, scroll);
             //button->SetValue(val);
             pin_info[pin].value = val;
+	    if (val == 0)
+	      digitalWrite(pin,LOW);
+	    else if (val==1)
+	      digitalWrite(pin, HIGH);
+	    /*
             int port_num = pin / 8;
             int port_val = 0;
             for (int i=0; i<8; i++) {
@@ -587,25 +546,28 @@ void MyFrame::MapperSignalHandler(mapper_signal msig, mapper_db_signal props,
             buf[0] = 0x90 | port_num;
             buf[1] = port_val & 0x7F;
             buf[2] = (port_val >> 7) & 0x7F;
-            port.Write(buf, 3);
+	    //            port.Write(buf, 3);
             tx_count += 3;
             //UpdateStatus();
-            needs_update = 1;
+            needs_update = 1;*/
             break;
         }
         case MODE_PWM:
+	  cout << "passe dans handler" << endl;
 	  if (val > 255)
                 val = 255;
-            //id = pin + 6000;
-            //wxSlider *slider = (wxSlider *)FindWindowById(id, scroll);
-            //slider->SetValue(val);
-            pin_info[pin].value = val;
+	  /* = pin + 6000;
+              wxSlider *slider = (wxSlider *)FindWindowById(id, scroll);
+              slider->SetValue(val);*/
+          /*pin_info[pin].value = val;
             buf[0] = 0xE0 | pin;
             buf[1] = val & 0x7F;
             buf[2] = (val >> 7) & 0x7F;
-            port.Write(buf, 3);
-            tx_count += 3;
-            //UpdateStatus();
+	    //           port.Write(buf, 3);
+            tx_count += 3
+            //UpdateStatus();*/
+
+	  pwmWrite(pin, val);
             needs_update = 1;
             break;
         case MODE_SERVO:
@@ -614,13 +576,15 @@ void MyFrame::MapperSignalHandler(mapper_signal msig, mapper_db_signal props,
             //id = pin + 6000;
             //wxSlider *slider = (wxSlider *)FindWindowById(id, scroll);
             //slider->SetValue(val);
-            pin_info[pin].value = val;
+            /*n_info[pin].value = val;
             buf[0] = 0xE0 | pin;
             buf[1] = val & 0x7F;
             buf[2] = (val >> 7) & 0x7F;
-            port.Write(buf, 3);
-            tx_count += 3;
+	    //            port.Write(buf, 3);
+            tx_count += 3;*/
             //UpdateStatus();
+	    
+	  pwmWrite(pin, val);
             needs_update = 1;
             break;
         default:
@@ -637,7 +601,15 @@ void MyFrame::OnToggleButton(wxCommandEvent &event)
 	int val = button->GetValue() ? 1 : 0;
 	//printf("Toggle Button, id = %d, pin=%d, val=%d\n", id, pin, val);
 	button->SetLabel(val ? _("High") : _("Low"));
+	
+	
 	pin_info[pin].value = val;
+	if (val == 0)
+	  digitalWrite(pin,LOW);
+	else if (val==1)
+	  digitalWrite(pin, HIGH);
+
+	/*
 	int port_num = pin / 8;
 	int port_val = 0;
 	for (int i=0; i<8; i++) {
@@ -652,56 +624,26 @@ void MyFrame::OnToggleButton(wxCommandEvent &event)
 	buf[0] = 0x90 | port_num;
 	buf[1] = port_val & 0x7F;
 	buf[2] = (port_val >> 7) & 0x7F;
-	port.Write(buf, 3);
-	tx_count += 3;
+	//	port.Write(buf, 3);
+	tx_count += 3;*/
     if (pin_info[pin].sig)
         msig_update_int(pin_info[pin].sig, val);
 	UpdateStatus();
 }
 
-//send the EEPROM orders to the firmware
-void MyFrame::OnEEPROM(wxCommandEvent &event)
-{ 
-  //A very bad solution to the problem of not loading the first time
-  //TODO: fix the protocol problem in the right way
-  for (int i = 0; i<=1; i++){
-    uint8_t buf[2];
-    if (event.GetId() == WRITE_EEPROM_ID)
-      for (int i = 0; i <128; i++){
-	int pinTemp = searchPinByCreatedOrder(i);
-	if ( pinTemp != -1)
-	  sendName(pinTemp);
-	else
-	  continue;
-      }
-    
-    buf[0]=0x09; 
-    if (event.GetId() == WRITE_EEPROM_ID)
-      buf[1]=0;
-    /*else if (event.GetId() == CLEAR_EEPROM_ID)
-      buf[1]=3;//conflict with 1 (don't find why)*/
-    else if (event.GetId() == LOAD_EEPROM_ID){
-      buf[1]=2;
-    }
-    port.Write(buf, 2);
-    tx_count += 2;
-  }
-}
 
 //Create a window to add a pin
 void MyFrame::OnAddPin(wxCommandEvent &event)
 {
-  //check if at least one pin is available
+  //check if at least one pin is available 
   bool isAPinFree = false;
   for (int i=0; i<128; i++)
-    if (pin_info[i].sig == 0 && (pin_info[i].supported_modes & (1<<MODE_INPUT) ||\
-				 pin_info[i].supported_modes & (1<<MODE_OUTPUT) ||\
-				 pin_info[i].supported_modes & (1<<MODE_ANALOG) ||\
-				 pin_info[i].supported_modes & (1<<MODE_PWM) ||\
-				 pin_info[i].supported_modes & (1<<MODE_SERVO)))
-      //TODO: find a better way to do this ?
+    if (pin_info[i].sig == 0 && (pin_info[i].supported_modes & (1<<0) ||\
+				 pin_info[i].supported_modes & (1<<1) ||\
+				 pin_info[i].supported_modes & (1<<2) ||\
+				 pin_info[i].supported_modes & (1<<3) ||\
+				 pin_info[i].supported_modes & (1<<4)))
       isAPinFree = true;
-
   
   if (isAPinFree){
     this->Disable();
@@ -817,7 +759,7 @@ void MyFrame::OnButton(wxCommandEvent &event)
     wxChoice *pinsChoice = (wxChoice *) FindWindowById(PIN_ID, NULL);
     for (int i = 0; i < 128; i++)
       if (pin_info[i].grid_row!=0 && pin_info[i].name == wx2std(nameTextCtrl->GetValue()))
-	
+	                                                                           
 	//check if the two signals are both input or output 
 	//( an input and an output can have the same name, but not two inputs or two outputs)
 	if (((pin_info[i].mode == MODE_INPUT				\
@@ -841,20 +783,28 @@ void MyFrame::OnButton(wxCommandEvent &event)
       int pin = atoi((wx2std(pinsChoice->GetStringSelection())).c_str());
  
       string mode = wx2std(modesChoice->GetStringSelection());
-      if (mode =="Input")
+      if (mode =="Input"){
       pin_info[pin].mode = MODE_INPUT;
-      else if (mode == "Output")
+      pinMode(pin, INPUT);
+      }
+      else if (mode == "Output"){
 	pin_info[pin].mode = MODE_OUTPUT;
+	pinMode(pin, OUTPUT);
+      }
       else if (mode == "Analog")
 	pin_info[pin].mode = MODE_ANALOG;
-      else if (mode == "Servo")
+      else if (mode == "Servo"){
 	pin_info[pin].mode = MODE_SERVO;
-      else if (mode == "PWM")
+	pinMode(pin, PWM_OUTPUT);
+      }
+      else if (mode == "PWM"){
 	pin_info[pin].mode = MODE_PWM;
+	pinMode(pin, PWM_OUTPUT);
+      }
       
       pin_info[pin].name = wx2std(nameTextCtrl->GetValue());
       names[pin] =  pin_info[pin].name;
-
+    
       pin_info[pin].unit = wx2std(unitTextCtrl->GetValue());
   
       add_pin(pin);
@@ -876,40 +826,7 @@ void MyFrame::OnButton(wxCommandEvent &event)
     delete_pin(pin);
   }
 }
-//To send names to the firmware
-void MyFrame::sendName(int pin)
-{
-  if (pin < 0 || pin > 127) return;
-  
-  uint8_t buf[SIZE_MAX_NAME+SIZE_MAX_UNIT+2];
-  for (int i = 0; i<SIZE_MAX_NAME+2;i++){
-    buf[i] = 0;
-  }
-  buf[0] = 0x08;
-  buf[1] = pin;
-  char signame[SIZE_MAX_NAME];
-  for (int i=0; i<SIZE_MAX_NAME; i++){
-    signame[i]='\0';
-  }
-  char sigunit[SIZE_MAX_NAME];
-  for (int i=0; i<SIZE_MAX_UNIT; i++){
-    sigunit[i]='\0';
-  }
-  
-  //TODO: make it in one step 
-  for (int i=0; i<(int)(pin_info[pin].name).length(); i++)
-    signame[i]=(pin_info[pin].name)[i]; 
-  for (int i=0; i<(int)(pin_info[pin].unit).length(); i++)
-    sigunit[i]=(pin_info[pin].unit)[i];
-  
-  for (int i = 0; i < SIZE_MAX_NAME ; i++)
-    buf[i+2] = (uint8_t)signame[i];
-  for (int i = 0; i < SIZE_MAX_UNIT ; i++)
-    buf[i+2+SIZE_MAX_NAME] = (uint8_t)sigunit[i];
-  
-  port.Write(buf, SIZE_MAX_NAME+SIZE_MAX_UNIT+2);
-  tx_count += SIZE_MAX_NAME+SIZE_MAX_UNIT+2; 
-}
+
 
 //convert a string from wx to std
 //TODO: gate together the two conversion functions
@@ -934,13 +851,9 @@ void MyFrame::OnSliderDrag(wxScrollEvent &event)
 	int val = slider->GetValue();
 	printf("Slider Drag, id = %d, pin=%d, val=%d\n", id, pin, val);
 	if (pin <= 15 && val <= 16383) {
-		uint8_t buf[3];
-		buf[0] = 0xE0 | pin;
-		buf[1] = val & 0x7F;
-		buf[2] = (val >> 7) & 0x7F;
-		port.Write(buf, 3);
-		tx_count += 3;
+	  pwmWrite(pin, val);//works also for servo
 	} else {
+	  /*
 		uint8_t buf[12];
 		int len=4;
 		buf[0] = 0xF0;
@@ -952,105 +865,54 @@ void MyFrame::OnSliderDrag(wxScrollEvent &event)
 		if (val > 0x00200000) buf[len++] = (val >> 21) & 0x7F;
 		if (val > 0x10000000) buf[len++] = (val >> 28) & 0x7F;
 		buf[len++] = 0xF7;
-		port.Write(buf, len);
-		tx_count += len;
+		//		port.Write(buf, len);
+		tx_count += len;*/
 	}
 	if (pin_info[pin].sig)
 	  msig_update_int(pin_info[pin].sig, val);
 	UpdateStatus();
 }
 
-void MyFrame::OnPort(wxCommandEvent &event)
-{
-  int id = event.GetId();
-  wxString name = port_menu->FindItem(id)->GetLabel();
-  
-  if (dev)
-    mdev_free(dev);
-  grid_count = 2;
-  dev = 0;
-
-  //disable menu options which can't work without a microcontroller plugged
-  file_menu->Enable( LOAD_FILE_ID, false);
-  file_menu->Enable( SAVE_FILE_ID, false);
-  EEPROM_menu->Enable( WRITE_EEPROM_ID, false);
-  EEPROM_menu->Enable( LOAD_EEPROM_ID, false);
-  //EEPROM_menu->Enable( CLEAR_EEPROM_ID, false);
-  signal_menu->Enable( ADD_PIN_ID, false);
-  
-  port.Close();
-  init_data();
-  //printf("OnPort, id = %d, name = %s\n", id, (const char *)name);
-  if (id == 9000) return;
-  
-  port.Open(name);
-  port.Set_baud(57600);
-  if (port.Is_open()) {
-    //printf("port is open\n");
-    firmata_name = _("");
-    rx_count = tx_count = 0;
-    parse_count = 0;
-    parse_command_len = 0;
-    UpdateStatus();
-    
-    //enable menu options
-    file_menu->Enable( LOAD_FILE_ID, true);
-    file_menu->Enable( SAVE_FILE_ID, true);
-    EEPROM_menu->Enable( WRITE_EEPROM_ID, true);
-    EEPROM_menu->Enable( LOAD_EEPROM_ID, true);
-    //EEPROM_menu->Enable( CLEAR_EEPROM_ID, true);
-    signal_menu->Enable( ADD_PIN_ID, true);
- 
-    /* 
-       The startup strategy is to open the port and immediately
-       send the REPORT_FIRMWARE message.  When we receive the
-       firmware name reply, then we know the board is ready to
-       communicate.
-       
-       For boards like Arduino which use DTR to reset, they may
-       reboot the moment the port opens.  They will not hear this
-       REPORT_FIRMWARE message, but when they finish booting up
-       they will send the firmware message.
-       
-       For boards that do not reboot when the port opens, they
-       will hear this REPORT_FIRMWARE request and send the
-       response.  If this REPORT_FIRMWARE request isn't sent,
-       these boards will not automatically send this info.
-       
-       Arduino boards that reboot on DTR will act like a board
-       that does not reboot, if DTR is not raised when the
-       port opens.  This program attempts to avoid raising
-       DTR on windows.  (is this possible on Linux and Mac OS-X?)
-       
-       Either way, when we hear the REPORT_FIRMWARE reply, we
-       know the board is alive and ready to communicate.
-    */
-    uint8_t buf[3];
-    buf[0] = START_SYSEX;
-    buf[1] = REPORT_FIRMWARE; // read firmata name & version
-    buf[2] = END_SYSEX;
-    port.Write(buf, 3);
-    tx_count += 3; 
-    wxWakeUpIdle();
-    dev = mdev_new("Firmata", 9000, 0);
-  } else {
-    printf("error opening port\n");
-  }
-  UpdateStatus();
-}
-
 void MyFrame::OnIdle(wxIdleEvent &event)
-{
-    uint8_t buf[1024];
-    int r;
+    {
+      //TODO: catch informations from GPIO pins outputs and use them
+      // uint8_t buf[1024];
+    int    val;
 
     if (dev)
       mdev_poll(dev, 0);
     if (needs_update)
       UpdateStatus();
-    r = port.Input_wait(40);
+
+    for (int pin=0;pin<8;pin++){
+      if (pin_info[pin].sig){
+	  
+	  mdev_now(dev, &tt);
+  mdev_start_queue(dev, tt);
+      switch (pin_info[pin].mode){
+      case MODE_INPUT :
+	val = digitalRead(pin);
+	msig_update(pin_info[pin].sig, &val, 1, tt);
+	if( pin_info[pin].value != (uint32_t)val){
+	wxStaticText *text = (wxStaticText *)FindWindowById(5000 + pin, scroll);
+	  if (text) text->SetLabel(val ? _("High") : _("Low"));
+	  pin_info[pin].value = (uint8_t)val;
+	  //	cout << "pin " << pin <<" = " << pin_info[pin].value << endl;
+	}
+	break;
+      default :
+	break;
+      }
+      
+      mdev_send_queue(dev, tt);
+      }
+      
+    }
+    /*
+    //    r = port.Input_wait(40);
     if (r > 0) {
-      r = port.Read(buf, sizeof(buf));
+      //      r = port.Read(buf, sizeof(buf));
+      //      cout <j  "buf : " << buf << endl;
       if (r < 0) {
 	// error
 	return;
@@ -1062,12 +924,13 @@ void MyFrame::OnIdle(wxIdleEvent &event)
 	  //printf("%02X ", buf[i]);
 	}
 	//printf("\n");
-	Parse(buf, r);
+	//	Parse(buf, r);
+
 	UpdateStatus();
-      }
+      } 
     } else if (r < 0) {
       return;
-    }
+      }*/
     event.RequestMore(true);
 }
 
@@ -1077,12 +940,12 @@ void MyFrame::Parse(const uint8_t *buf, int len)
   
   p = buf;
   end = p + len;
-
-  mdev_timetag_now(dev, &tt);
+  
+  mdev_now(dev, &tt);
   mdev_start_queue(dev, tt);
   for (p = buf; p < end; p++) {
-    uint8_t msn = *p & 0xF0;
-    if (msn == 0xE0 || msn == 0x90 || *p == 0xF9) {
+    // uint8_t msn = *p & 0xF0;
+    /*if (msn == 0xE0 || msn == 0x90 || *p == 0xF9) {
       isProgramLoaded = true;
       UpdateStatus();
       parse_command_len = 3;
@@ -1095,29 +958,26 @@ void MyFrame::Parse(const uint8_t *buf, int len)
       parse_command_len = sizeof(parse_buf);
     } else if (*p == END_SYSEX) {
       parse_command_len = parse_count + 1;
-    } else if ((*p & 0x80) && (parse_count==0)) { // conflict with the 128 of the capacitive touch sensor
+    } else if (*p & 0x80) {
       parse_command_len = 1;
       parse_count = 0;
     } else if (*p == EEPROM_LOADING) {
       parse_command_len = SIZE_MAX_NAME+SIZE_MAX_UNIT+3; //command + pin + name + mode 
       parse_count = 0;
-    } else if (*p == RECEIVE_NAME){
-      parse_command_len = SIZE_MAX_NAME-1+2;
+      } else if (*p == RECEIVE_NAME){
+      parse_command_len = SIZE_MAX_NAME+2;
       parse_count = 0;
-    } else if (*p == TSTICK_DATA){
-      parse_command_len = 2+6;
-      parse_count = 0;
-    }
-    if (parse_count < (int)sizeof(parse_buf))
+      } */
+    if (parse_count < (int)sizeof(parse_buf)) 
       parse_buf[parse_count++] = *p;
     if (parse_count == parse_command_len) {
-      DoMessage();
+      //    DoMessage();
       parse_count = parse_command_len = 0;
     }
   }
   mdev_send_queue(dev, tt);
 }
-
+/*
 void MyFrame::DoMessage(void)
 {
   uint8_t cmd = (parse_buf[0] & 0xF0);
@@ -1151,6 +1011,7 @@ void MyFrame::DoMessage(void)
       if (pin_info[pin].mode == MODE_INPUT) {
 	int val = (port_val & mask) ? 1 : 0;
 	if (pin_info[pin].sig)
+
 	  msig_update(pin_info[pin].sig, &val, 1, tt);
 	if (pin_info[pin].value != (uint32_t)val) {
 	  //printf("pin %d is %d\n", pin, val);
@@ -1162,8 +1023,8 @@ void MyFrame::DoMessage(void)
       }
     }
     return;
-  }
-  
+    }*/
+  /*
   //names coming from EEPROM processing
   if (parse_buf[0] == EEPROM_LOADING){
 
@@ -1206,40 +1067,12 @@ void MyFrame::DoMessage(void)
       add_pin(pin);
     }
   }
-  
+  *//*
   if (parse_buf[0] == RECEIVE_NAME && parse_buf[1]>0 && parse_buf[1]<=70){
     int pin = parse_buf[1];
     (pin_info[pin].name).resize(SIZE_MAX_NAME);
-    for (int i=0; i<SIZE_MAX_NAME-1; i++)
+    for (int i=0; i<SIZE_MAX_NAME; i++)
       (pin_info[pin].name)[i]=parse_buf[i+2];
-    names[pin] = pin_info[pin].name;
-  }
-
-  if (parse_buf[0] == TSTICK_DATA){
-    int pin =  parse_buf[1];
-    if (!pin_info[pin].sig && pin>0 && pin<127){ //initialize the signal on the interface and libmapper
-      pin_info[pin].mode = MODE_ANALOG;
-      add_pin(pin);
-    }
-    wxStaticText *text = (wxStaticText *)FindWindowById(5000 + pin, scroll);
-    int values[6];
-    int capaActiv[48];
-    int capaCounter = 0;
-    for (int i = 0; i<6; i++){
-      values[i]=int(parse_buf[i+2]);
-      for ( int j = 0; j< 8; j++)
-	if ( (parse_buf[i+2] & (1<<j) )){
-	  capaActiv[capaCounter] = i*8+j+1;
-	  if (pin_info[pin].sig)
-	    msig_update(pin_info[pin].sig,  &capaActiv[capaCounter] , 1, tt);
-	  capaCounter++;
-	  if (text) {
-	    wxString val; 
-	    val.Printf(_("%d"), i*8+j+1 );
-	    text->SetLabel(val);
-	  }
-	}
-    }
   }
   
   if (parse_buf[0] == START_SYSEX && parse_buf[parse_count-1] == END_SYSEX) {
@@ -1275,7 +1108,7 @@ void MyFrame::DoMessage(void)
 	buf[len++] = 0xD0 | i;  // report digital
 	buf[len++] = 1;
       }
-      port.Write(buf, len);
+      //     port.Write(buf, len);
       tx_count += len;
     } else if (parse_buf[1] == CAPABILITY_RESPONSE) {
       int pin, i, n;
@@ -1303,7 +1136,7 @@ void MyFrame::DoMessage(void)
 	  buf[len++] = pin;
 	  buf[len++] = END_SYSEX;
 	}
-	port.Write(buf, len);
+	//	port.Write(buf, len);
 	tx_count += len;
       }
     } else if (parse_buf[1] == ANALOG_MAPPING_RESPONSE) {
@@ -1323,8 +1156,8 @@ void MyFrame::DoMessage(void)
     return;
   }
 }
-
-//save the configuration in an external file
+    */
+//save the configuration in an extern file
 void MyFrame::OnSaveFile( wxCommandEvent&event)
 {
   string my_file;
@@ -1372,7 +1205,7 @@ int MyFrame::searchPinByCreatedOrder(int grid_row){
   }
   return -1;
 }
-//load a configuration from an external file
+//load a configuration from an extern file
 void MyFrame::OnLoadFile( wxCommandEvent &event)
 {  
   string my_file;
@@ -1447,16 +1280,6 @@ void MyFrame::OnAbout( wxCommandEvent &event )
 
 void MyFrame::OnQuit( wxCommandEvent &event )
 {
-
-  if (!isConfigurationSaved && grid_count>2){
-    wxMessageDialog quitDialog( this, _("Do you want to save the configuration ?"), wxT(""), wxYES_NO );
-    int result = quitDialog.ShowModal();
-    if (result == wxID_YES){
-      wxCommandEvent cmd = wxCommandEvent(-1, -1);
-      OnSaveFile(cmd);
-    }
-  }
-
   if (dev)
         mdev_free(dev);
     dev = 0;
@@ -1484,56 +1307,6 @@ void MyFrame::OnSize( wxSizeEvent &event )
     event.Skip( true );
 }
 
-//------------------------------------------------------------------------------
-// Port Menu
-//------------------------------------------------------------------------------
-
-MyMenu::MyMenu(const wxString& title, long style) : wxMenu(title, style)
-{
-}
-	
-void MyMenu::OnShowPortList(wxMenuEvent &event)
-{
-	wxMenu *menu;
-	wxMenuItem *item;
-	int num, any=0;
-
-	menu = event.GetMenu();
-	//printf("OnShowPortList, %s\n", (const char *)menu->GetTitle());
-	if (menu != port_menu) return;
-
-	wxMenuItemList old_items = menu->GetMenuItems();
-
-	// Disable for dynamic ports
-	// Work-around menu "append" bug in wx2.8 for Mac, can't support dynamic menus.
-#ifdef __WXMAC__
-	if (old_items.GetCount() == 0)
-#endif
-	  {
-	    menu->AppendRadioItem(9000, _(" (none)"));
-	    wxArrayString list = port.port_list();
-	    num = list.GetCount();
-	    for (int i=0; i < num; i++) {
-	      //printf("%d: port %s\n", i, (const char *)list[i]);
-	      item = menu->AppendRadioItem(9001 + i, list[i]);
-	      if (port.Is_open() && port.get_name().IsSameAs(list[i])) {
-		menu->Check(9001 + i, true);
-		any = 1;
-	      }
-	    }
-	    
-	    num = old_items.GetCount();
-	    for (int i = old_items.GetCount() - 1; i >= 0; i--) {
-	      menu->Delete(old_items[i]);
-	    }
-	  }
-	
-	if (!any) menu->Check(9000, true);
-} 
-
-void MyMenu::OnHighlight(wxMenuEvent &event)
-{
-}
 
 
 //------------------------------------------------------------------------------
@@ -1544,14 +1317,14 @@ IMPLEMENT_APP(MyApp)
 
 MyApp::MyApp()
 {
-}
+} 
 
 bool MyApp::OnInit()
 {
     MyFrame *frame = new MyFrame( NULL, -1, _("Firmata Mapper"), wxPoint(500, 50), wxSize(550,400) );
     frame->Show( true );
-    
-    /*addPinFrame = new wxFrame(frame, NULL, _("add a pin"), wxPoint(500, 50), wxDefaultSize);
+
+ /*addPinFrame = new wxFrame(frame, NULL, _("add a pin"), wxPoint(500, 50), wxDefaultSize);
       addPinFrame->Show(false);*/
     
     for (int i=0;i<128;i++)

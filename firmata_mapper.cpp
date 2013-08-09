@@ -65,46 +65,46 @@ wxMenu *EEPROM_menu;
 bool isPinChosed = false;
 bool isConfigurationSaved = false;
 
-#define MODE_INPUT 0x00
-#define MODE_OUTPUT 0x01
-#define MODE_ANALOG 0x02
-#define MODE_PWM 0x03
-#define MODE_SERVO 0x04
-#define MODE_SHIFT 0x05
-//#define MODE_I2C 0x06
+#define MODE_INPUT                   0x00
+#define MODE_OUTPUT                  0x01
+#define MODE_ANALOG                  0x02
+#define MODE_PWM                     0x03
+#define MODE_SERVO                   0x04
+#define MODE_SHIFT                   0x05
+//#define MODE_I2C                   0x06
 
-#define START_SYSEX 0xF0 // start a MIDI Sysex message
-#define END_SYSEX 0xF7 // end a MIDI Sysex message
-#define PIN_MODE_QUERY 0x72 // ask for current and supported pin modes
-#define PIN_MODE_RESPONSE 0x73 // reply with current and supported pin modes
-#define PIN_STATE_QUERY 0x6D
-#define PIN_STATE_RESPONSE 0x6E
-#define CAPABILITY_QUERY 0x6B
-#define CAPABILITY_RESPONSE 0x6C
-#define ANALOG_MAPPING_QUERY 0x69
-#define ANALOG_MAPPING_RESPONSE 0x6A
-#define REPORT_FIRMWARE 0x79 // report name and version of the firmware
-#define EEPROM_LOADING 0x0B
-#define RECEIVE_NAME 0x0C
+#define START_SYSEX                  0xF0 // start a MIDI Sysex message
+#define END_SYSEX                    0xF7 // end a MIDI Sysex message
+#define PIN_MODE_QUERY               0x72 // ask for current and supported pin modes
+#define PIN_MODE_RESPONSE            0x73 // reply with current and supported pin modes
+#define PIN_STATE_QUERY              0x6D
+#define PIN_STATE_RESPONSE           0x6E
+#define CAPABILITY_QUERY             0x6B
+#define CAPABILITY_RESPONSE          0x6C
+#define ANALOG_MAPPING_QUERY         0x69
+#define ANALOG_MAPPING_RESPONSE      0x6A
+#define REPORT_FIRMWARE              0x79 // report name and version of the firmware
+#define EEPROM_LOADING               0x0B
+#define RECEIVE_NAME                 0x0C
 
-#define SIZE_MAX_NAME 12
-#define SIZE_MAX_UNIT 5
+#define SIZE_MAX_NAME                12
+#define SIZE_MAX_UNIT                5
 
-#define SAVE_FILE_ID 6323
-#define LOAD_FILE_ID 6324
-#define ADD_PIN_ID 6325
-#define WRITE_EEPROM_ID 6326
-#define CLEAR_EEPROM_ID 6327
-#define LOAD_EEPROM_ID 6328
-#define MODE_CHANGE 6329
-#define MODE_TEMP_CHANGE 6330
+#define SAVE_FILE_ID                 6323
+#define LOAD_FILE_ID                 6324
+#define ADD_PIN_ID                   6325
+#define WRITE_EEPROM_ID              6326
+#define CLEAR_EEPROM_ID              6327
+#define LOAD_EEPROM_ID               6328
+#define MODE_CHANGE                  6329
+#define MODE_TEMP_CHANGE             6330
 
-#define PIN_FRAME_ID 6331
-#define NAME_ID 6332
-#define UNIT_ID 6333
-#define MODE_ID 6334
-#define PIN_ID 6335
-#define WARNING_ID 6336
+#define PIN_FRAME_ID                 6331
+#define NAME_ID                      6332
+#define UNIT_ID                      6333
+#define MODE_ID                      6334
+#define PIN_ID                       6335
+#define WARNING_ID                   6336
 
 BEGIN_EVENT_TABLE(MyFrame,wxFrame)
         EVT_MENU(SAVE_FILE_ID, MyFrame::OnSaveFile)
@@ -658,6 +658,7 @@ void MyFrame::OnToggleButton(wxCommandEvent &event)
 //send the EEPROM orders to the firmware
 void MyFrame::OnEEPROM(wxCommandEvent &event)
 {
+
   //A very bad solution to the problem of not loading the first time
   //TODO: fix the protocol problem in the right way
   for (int i = 0; i<=1; i++){
