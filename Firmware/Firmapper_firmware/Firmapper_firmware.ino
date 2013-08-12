@@ -34,7 +34,7 @@
 
 #include <Servo.h>
 #include <Wire.h>
-#include <Firmata_mapper.h>
+#include <FirmapperLib.h>
 #include <EEPROM.h>
 #include <SPI.h>
 

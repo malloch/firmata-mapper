@@ -2,7 +2,7 @@ OS = LINUX
 #OS = MACOSX
 #OS = WINDOWS
 
-PROG = firmata_mapper
+PROG = Firmapper_TStick
 
 ifeq ($(OS), LINUX)
 TARGET = $(PROG)
@@ -43,7 +43,7 @@ endif
 
 MAKEFLAGS = --jobs=4
 
-OBJS = firmata_mapper.o serial.o
+OBJS = Firmapper_TStick.o serial.o
 
 all: $(FINAL_TARGET)
 
@@ -67,7 +67,7 @@ $(PROG).app: $(PROG) Info.plist
 $(PROG).dmg: $(PROG).app
 	mkdir -p dmg_tmpdir
 	cp -r $(PROG).app dmg_tmpdir
-	hdiutil create -ov -srcfolder dmg_tmpdir -format UDBZ -volname "Firmata Mapper" $(PROG).dmg
+	hdiutil create -ov -srcfolder dmg_tmpdir -format UDBZ -volname "Firmata Mapper TStick" $(PROG).dmg
 
 clean:
 	rm -f $(PROG) $(PROG).exe $(PROG).exe.bak $(PROG).dmg *.o
