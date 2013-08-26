@@ -20,7 +20,7 @@
 
 
 #if defined(__GNUG__) && !defined(NO_GCC_PRAGMA)
-#pragma implementation "Firmapper_software.h"
+#pragma implementation "Firmapper.h"
 #endif
 
 #include "wx/wxprec.h"
@@ -56,7 +56,7 @@ typedef struct {
 } pin_t;
 string names[128];
 pin_t pin_info[128];
-wxString firmata_name;
+wxString firmapper_name;
 unsigned int rx_count, tx_count;
 wxMenu *port_menu;
 wxMenu *file_menu;
@@ -184,7 +184,7 @@ init_data();
 // For testing only, add many controls so something
 // appears in the window without requiring any
 // actual communication...
-dev = mdev_new("Firmata", 9000, 0);
+dev = mdev_new("Firmapper", 9000, 0);
 
 pin_info[0].mode = MODE_INPUT;
 pin_info[0].analog_channel = 2;
@@ -229,7 +229,7 @@ void MyFrame::init_data(void)
     pin_info[i].grid_row = 0;
   }
   tx_count = rx_count = 0;
-  firmata_name = _("");
+  firmapper_name = _("");
   
   init_add_pin_frame();
   
@@ -465,6 +465,14 @@ pin_info[i].grid_row --;
      pin_info[pin].grid_row = 0;
      grid_count--;
      rebuild_grid();
+
+     //set by default to digital input and disable it
+     uint8_t buf[3];
+     buf[0] = 0xF4;
+     buf[1] = pin;
+     buf[2] = 0;
+     port.Write(buf, 3);
+     tx_count += 3;
 }
 
 void MyFrame::rebuild_grid()
@@ -482,7 +490,7 @@ void MyFrame::rebuild_grid()
  
   new_size();
 }
-
+ 
 //convert a string from std to wx
 wxString std2wx(std::string s){
   wxString wx;
@@ -500,10 +508,10 @@ void MyFrame::UpdateStatus(void)
 {
   wxString status;
   if (port.Is_open() && isProgramLoaded)
-    status.Printf(port.get_name() + _(" Tx:%u Rx:%u ") + firmata_name, tx_count, rx_count );
+    status.Printf(port.get_name() + _(" Tx:%u Rx:%u ") + firmapper_name, tx_count, rx_count );
   //else if (port.Is_open() && !isProgramLoaded)
     //TODO: find a way to define if an operational firmware is loaded on the Arduino
-    //status = _("Firmata program not loaded on the arduino");
+    //status = _("Firmapper program not loaded on the arduino");
   else
     status = _("Please choose serial port");
   SetStatusText(status);
@@ -984,7 +992,7 @@ void MyFrame::OnPort(wxCommandEvent &event)
   port.Set_baud(57600);
   if (port.Is_open()) {
     //printf("port is open\n");
-    firmata_name = _("");
+    firmapper_name = _("");
     rx_count = tx_count = 0;
     parse_count = 0;
     parse_command_len = 0;
@@ -1020,12 +1028,12 @@ know the board is alive and ready to communicate.
 */
     uint8_t buf[3];
     buf[0] = START_SYSEX;
-    buf[1] = REPORT_FIRMWARE; // read firmata name & version
+    buf[1] = REPORT_FIRMWARE; // read firmapper name & version
     buf[2] = END_SYSEX;
     port.Write(buf, 3);
     tx_count += 3;
     wxWakeUpIdle();
-    dev = mdev_new("Firmata", 9000, 0);
+    dev = mdev_new("Firmapper", 9000, 0);
   } else {
     printf("error opening port\n");
   }
@@ -1043,6 +1051,7 @@ void MyFrame::OnIdle(wxIdleEvent &event)
     r = port.Input_wait(40);
     if (r > 0) {
       r = port.Read(buf, sizeof(buf));
+      cout << buf << endl;
       if (r < 0) {
 	// error
 	return;
@@ -1216,7 +1225,7 @@ void MyFrame::DoMessage(void)
       name[len++] = '.';
       name[len++] = parse_buf[3] + '0';
       name[len++] = 0;
-      firmata_name = wxString(name,wxConvUTF8);
+      firmapper_name = wxString(name,wxConvUTF8);
       // query the board's capabilities only after hearing the
       // REPORT_FIRMWARE message. For boards that reset when
       // the port open (eg, Arduino with reset=DTR), they are
@@ -1403,7 +1412,7 @@ void MyFrame::OnLoadFile( wxCommandEvent &event)
 
 void MyFrame::OnAbout( wxCommandEvent &event )
 {
-  wxMessageDialog dialog( this, _("Firmata Mapper 1.0\nCopyright Joseph Malloch and Julie René, based on Firmata Test by Paul Stoffregen"), wxT("About Firmata Mapper"), wxOK|wxICON_INFORMATION );
+  wxMessageDialog dialog( this, _("Firmapper 2.0\nCopyright Joseph Malloch and Julie René, based on Firmata Test by Paul Stoffregen"), wxT("About Firmapper"), wxOK|wxICON_INFORMATION );
   dialog.ShowModal();
 }
 
@@ -1509,11 +1518,8 @@ MyApp::MyApp()
 
 bool MyApp::OnInit()
 {
-    MyFrame *frame = new MyFrame( NULL, -1, _("Firmata Mapper"), wxPoint(500, 50), wxSize(550,400) );
+    MyFrame *frame = new MyFrame( NULL, -1, _("Firmapper"), wxPoint(500, 50), wxSize(550,400) );
     frame->Show( true );
-    
-    /*addPinFrame = new wxFrame(frame, NULL, _("add a pin"), wxPoint(500, 50), wxDefaultSize);
-addPinFrame->Show(false);*/
     
     for (int i=0;i<128;i++)
       names[i]="";

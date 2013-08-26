@@ -3,6 +3,5 @@ TODO :
 - Add a visible warning if the wrong firmware is loaded on the Arduino
 - Fix the protocol conflict which prevent the loading of the EEPROM the first time the user ask for it (it seems to be a problem with the command END_SYSEX which is not received )
 - Manage the reset button of the Arduino (Loading from the Arduino ? Just reinitialize some variables ? ... )
-- Disable the pins in the Firmware when a signal is deleted
-- Make it possible to launch webmapper since the firmata_mapper GUI interface
-- Fix the problem of crashing when the name of the save has one character or more than nine
+- Make it possible to launch webmapper from the firmata_mapper GUI interface ?
+- Fix the problem of crash when the name of the save has one character or more than nine

@@ -13,16 +13,16 @@ What is on this repository :
 
 How to run :   
 
-    0) I assume that you already have Libmapper and all it's dependencies installed on your computer. 
+    0) I assume that you already have Libmapper and all its dependencies installed on your computer. 
        	   If not, you can see how to do it on the corresponding website :
            http://www.idmil.org/software/libmapper
 
     1) Create a clone of the following repository on your computer :
        	   https://github.com/RDju/firmata-mapper.git or git@github.com:RDju/firmata-mapper.git
 
-    2) Ajust the Makefile of the software part according to your computer (Linux by default), and compile it
+    2) Adjust the Makefile of the software part according to your computer (Linux by default), and compile it
 
-    3) Copie past the Arduino library FirmataLib in the corresponding folter of the Arduino software
+    3) Copy past the Arduino library FirmataLib in the corresponding folder of the Arduino software
 
     4) Flash your Arduino with the firmware programm Firmapper_firmware.ino
 

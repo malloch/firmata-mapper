@@ -1,8 +1,8 @@
-#ifndef __firmata_mapper_H__
-#define __firmata_mapper_H__
+#ifndef __firmapper_H__
+#define __firmapper_H__
 
 #if defined(__GNUG__) && !defined(NO_GCC_PRAGMA)
-#pragma interface "Firmapper_software.h"
+#pragma interface "Firmapper.h"
 #endif
 
 #include <wx/wx.h>
