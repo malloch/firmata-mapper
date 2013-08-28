@@ -1,6 +1,6 @@
- /*  Firmata GUI-friendly libmapper interface
+ /*  Firmata GUI-friendly libmapper interface adapted especially for the T-Stick
  *  Joseph Malloch (joseph.malloch@gmail.com)
- *
+ *  Julie René
  *  Adapted from firmata_test
  *  Copyright 2010, Paul Stoffregen (paul@pjrc.com)
  *

@@ -1,4 +1,6 @@
 /*
+ * Firmapper is a protocol for Libmapper adapted from Firmata.
+ *
  * Firmata is a generic protocol for communicating with microcontrollers
  * from software on a host computer. It is intended to work with
  * any host computer software package.
@@ -10,6 +12,7 @@
  */
 
 /*
+  Copyright (C) 2013 Julie René.  All rights reserved.
   Copyright (C) 2006-2008 Hans-Christoph Steiner.  All rights reserved.
   Copyright (C) 2010-2011 Paul Stoffregen.  All rights reserved.
   Copyright (C) 2009 Shigeru Kobayashi.  All rights reserved.

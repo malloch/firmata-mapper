@@ -1,5 +1,6 @@
  /* Firmata GUI-friendly libmapper interface
 * Joseph Malloch (joseph.malloch@gmail.com)
+* Julie René
 *
 * Adapted from firmata_test
 * Copyright 2010, Paul Stoffregen (paul@pjrc.com)
@@ -1051,7 +1052,6 @@ void MyFrame::OnIdle(wxIdleEvent &event)
     r = port.Input_wait(40);
     if (r > 0) {
       r = port.Read(buf, sizeof(buf));
-      cout << buf << endl;
       if (r < 0) {
 	// error
 	return;
