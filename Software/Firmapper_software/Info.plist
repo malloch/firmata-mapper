@@ -5,7 +5,7 @@
 	<key>CFBundleDisplayName</key>
 	<string>Firmata Mapper</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.idmil.firmata_mapper</string>
+	<string>com.idmil.firmapper</string>
 	<key>CFBundleName</key>
 	<string>Firmata Mapper</string>
 	<key>CFBundleShortVersionString</key>
@@ -17,7 +17,7 @@
 	<key>NSAppleScriptEnabled</key>
 	<false/>
 	<key>CFBundleExecutable</key>
-	<string>firmata_mapper</string>
+	<string>Firmapper</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleSignature</key>
