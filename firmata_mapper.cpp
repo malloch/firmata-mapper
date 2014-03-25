@@ -327,7 +327,7 @@ void MyFrame::MapperSignalHandler(mapper_signal msig, mapper_db_signal props,
                                   int instance_id, void *value, int count,
                                   mapper_timetag_t *time)
 {
-    int pin = (int)props->user_data;
+    int pin = (long)props->user_data;
     if (pin < 0 || pin > 127) return;
     if (!pin_info[pin].sig) return;
     if (!value) return;
@@ -564,7 +564,7 @@ void MyFrame::Parse(const uint8_t *buf, int len)
 	p = buf;
 	end = p + len;
 
-    mdev_timetag_now(dev, &tt);
+    mdev_now(dev, &tt);
     mdev_start_queue(dev, tt);
 	for (p = buf; p < end; p++) {
 		uint8_t msn = *p & 0xF0;
