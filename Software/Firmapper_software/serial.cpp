@@ -17,7 +17,7 @@
 
 #include <wx/wx.h>
 #include "serial.h"
-#include "firmata_mapper.h"
+#include "Firmapper.h"
 
 #if defined(LINUX)
   #include <sys/types.h>

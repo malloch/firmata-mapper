@@ -1079,7 +1079,7 @@ void MyFrame::Parse(const uint8_t *buf, int len)
   p = buf;
   end = p + len;
   
-  mdev_timetag_now(dev, &tt);
+  mdev_now(dev, &tt);
   mdev_start_queue(dev, tt);
   for (p = buf; p < end; p++) {
     uint8_t msn = *p & 0xF0;
